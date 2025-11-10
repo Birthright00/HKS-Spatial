@@ -1,0 +1,6 @@
+[submodule "picture-generation-verbose-api-module"]
+	path = picture-generation-verbose-api-module
+	url = https://github.com/LZ-sudo/picture-generation-verbose-api-module.git
+[submodule "Spatial-Design-Studio-Frontend"]
+	path = Spatial-Design-Studio-Frontend
+	url = https://github.com/yanzhenteo/Spatial-Design-Studio-Frontend
