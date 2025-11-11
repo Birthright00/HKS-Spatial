@@ -48,8 +48,14 @@ chmod +x setup.sh
 
 This will:
 - Create virtual environments for coordinator and both submodules
+- **Auto-detect CUDA** and install GPU or CPU version of PyTorch accordingly
 - Install all dependencies
 - Create `.env` file from template
+
+**Note on CUDA**: The setup script automatically detects if you have NVIDIA CUDA available:
+- **CUDA detected**: Installs GPU-accelerated PyTorch (faster processing)
+- **No CUDA**: Installs CPU-only PyTorch (works on all systems, slower)
+- The code automatically uses the best available device at runtime
 
 ### 2. Configure API Keys
 
@@ -58,7 +64,7 @@ Edit `.env` and add your API keys:
 ```env
 OPENAI_API_KEY=your_openai_key_here
 NANOBANANA_API_KEY=your_nanobanana_key_here
-ELEVENLABS_API_KEY=your_nanobanana_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_key_here
 ```
 
 ## Usage
@@ -141,6 +147,14 @@ curl -X POST http://127.0.0.1:8002/transform \
 - Check API keys in `.env`
 - Run setup script again
 
+**Manual CPU-only installation**:
+If you want to force CPU-only installation:
+```bash
+cd picture-generation-verbose-api-module
+source myenv/bin/activate  # or myenv\Scripts\activate on Windows
+pip install -r requirements-cpu.txt
+```
+
 **Port conflicts**:
 - Change ports in `.env`:
   ```env
@@ -161,3 +175,5 @@ sed -i 's/\r$//' setup.sh
 - Services communicate via FastAPI REST APIs
 - Coordinator manages service lifecycle and health checks
 - All API keys stored in single `.env` file in root directory
+- **CUDA auto-detection**: Code automatically uses GPU if available, falls back to CPU
+- Interior segmentation model loads to appropriate device at runtime

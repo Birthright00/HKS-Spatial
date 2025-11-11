@@ -47,11 +47,41 @@ cd picture-generation-verbose-api-module
 if exist myenv (
     echo picture-generation myenv already exists, skipping...
 ) else (
+    setlocal enabledelayedexpansion
     python -m venv myenv
     call myenv\Scripts\activate.bat
     python -m pip install --upgrade pip
-    pip install -r requirements.txt
+
+    REM Detect CUDA availability
+    echo Detecting CUDA availability...
+
+    REM Try to detect PyTorch and CUDA
+    python -c "try: import torch; print('cuda' if torch.cuda.is_available() else 'cpu') except: print('none')" > temp_device.txt 2>nul
+
+    set /p DEVICE=<temp_device.txt
+    del temp_device.txt 2>nul
+
+    if "!DEVICE!"=="none" (
+        echo No PyTorch found. Attempting CUDA installation...
+        echo If this fails, the script will retry with CPU-only version.
+        pip install -r requirements.txt
+        if !errorlevel! neq 0 (
+            echo CUDA installation failed. Installing CPU-only version...
+            pip install -r requirements-cpu.txt
+            if !errorlevel! neq 0 ( echo CPU install FAILED. )
+        )
+    ) else if "!DEVICE!"=="cuda" (
+        echo CUDA detected. Installing GPU-accelerated PyTorch...
+        pip install -r requirements.txt
+        if !errorlevel! neq 0 ( echo GPU install FAILED. )
+    ) else (
+        echo No CUDA detected. Installing CPU-only PyTorch...
+        pip install -r requirements-cpu.txt
+        if !errorlevel! neq 0 ( echo CPU install FAILED. )
+    )
+
     call deactivate
+    endlocal
 )
 cd ..
 
