@@ -53,33 +53,26 @@ class ImageAnalysisTransformPipeline:
         self.image_stem = self.image_path.stem
 
     def start_services(self):
-        """Start RAG service only (picture generation runs directly)"""
+        """Start both RAG and Picture Generation services"""
         print("\n" + "="*70)
-        print("STARTING RAG SERVICE")
+        print("STARTING MICROSERVICES")
         print("="*70)
 
-        rag_service = self.manager.get_service("rag")
-        if not rag_service:
-            raise RuntimeError("RAG service not found")
-
-        success = rag_service.start()
+        success = self.manager.start_all()
 
         if not success:
-            raise RuntimeError("Failed to start RAG service")
+            raise RuntimeError("Failed to start one or more services")
 
-        print("\n✓ RAG service started successfully")
-        print("Note: Picture generation will run directly (not as a service)\n")
+        print("\n✓ All services started successfully\n")
 
     def stop_services(self):
-        """Stop RAG service"""
+        """Stop all services"""
         print("\n" + "="*70)
-        print("STOPPING RAG SERVICE")
+        print("STOPPING MICROSERVICES")
         print("="*70)
 
-        rag_service = self.manager.get_service("rag")
-        if rag_service:
-            rag_service.stop()
-        print("✓ RAG service stopped\n")
+        self.manager.stop_all()
+        print("✓ All services stopped\n")
 
     def analyze_image(self) -> dict:
         """
@@ -138,7 +131,7 @@ class ImageAnalysisTransformPipeline:
 
     def transform_image(self, analysis_json: dict) -> Path:
         """
-        Step 2: Transform image with Picture Generation - Direct subprocess call
+        Step 2: Transform image with Picture Generation service API
 
         Args:
             analysis_json: JSON analysis from step 1
@@ -150,71 +143,70 @@ class ImageAnalysisTransformPipeline:
         print("STEP 2: TRANSFORMING IMAGE")
         print("="*70)
 
-        # Save JSON to file for transform_image.py
-        json_file = self.output_dir / f"{self.image_stem}_prompts_{self.timestamp}.json"
-        with open(json_file, "w", encoding="utf-8") as f:
-            json.dump(analysis_json, f, indent=2)
-
-        print(f"\nJSON prompts saved: {json_file}")
-
-        # Output path for transformed image
-        output_image = self.output_dir / f"{self.image_stem}_transformed_{self.timestamp}.jpg"
+        image_gen_service = self.manager.get_service("image_gen")
+        if not image_gen_service or not image_gen_service.check_health():
+            raise RuntimeError("Picture Generation service is not available")
 
         num_issues = len(analysis_json.get("issues", []))
-        print(f"Number of issues to transform: {num_issues}")
+        print(f"\nNumber of issues to transform: {num_issues}")
         print(f"This may take a while - processing {num_issues} issues sequentially...")
         print("Each issue involves segmentation + image editing (~3-5 minutes per issue)")
-
-        # Get Python executable from picture-generation venv
-        pic_gen_path = ServiceConfig.IMAGE_GEN_PATH
-        pic_gen_venv = pic_gen_path / "myenv"
-
-        # Windows or Unix
-        python_exe = pic_gen_venv / "Scripts" / "python.exe"
-        if not python_exe.exists():
-            python_exe = pic_gen_venv / "bin" / "python"
-
-        if not python_exe.exists():
-            raise RuntimeError(f"Picture generation venv not found at {pic_gen_venv}")
-
-        # Call transform_image.py directly as subprocess
-        transform_script = pic_gen_path / "transform_image.py"
-
-        print(f"\nCalling: {python_exe} {transform_script}")
-        print(f"  Input: {self.image_path}")
-        print(f"  Prompts: {json_file}")
-        print(f"  Output: {output_image}")
+        print(f"\nCalling Picture Generation service at: {image_gen_service.url}")
 
         try:
-            import subprocess
-            result = subprocess.run(
-                [
-                    str(python_exe),
-                    str(transform_script),
-                    str(self.image_path.resolve()),  # Use absolute path
-                    str(json_file.resolve()),  # Use absolute path
-                    str(output_image.resolve())  # Use absolute path
-                ],
-                cwd=str(pic_gen_path),  # Run in picture-generation directory
-                capture_output=False,  # Don't capture - let output stream to console
-                timeout=num_issues * 400  # 6-7 minutes per issue
-            )
+            # Prepare multipart form data
+            with open(self.image_path, "rb") as f:
+                files = {"file": (self.image_path.name, f, "image/jpeg")}
+                data = {"analysis_json": json.dumps(analysis_json)}
 
-            if result.returncode != 0:
-                raise RuntimeError(f"Transformation failed with return code {result.returncode}")
+                # Long timeout for transformation (6-7 minutes per issue)
+                timeout = num_issues * 400
 
-            if not output_image.exists():
-                raise RuntimeError(f"Transformation did not create output file: {output_image}")
+                print(f"Sending transformation request (timeout: {timeout}s)...")
+                response = requests.post(
+                    f"{image_gen_service.url}/transform",
+                    files=files,
+                    data=data,
+                    timeout=timeout
+                )
+
+            if response.status_code != 200:
+                raise RuntimeError(f"Picture Generation service error: {response.text}")
+
+            result = response.json()
+
+            if not result.get("success"):
+                raise RuntimeError(f"Transformation failed: {result.get('error')}")
+
+            # Get transformed image path from service response
+            transformed_path = Path(result["transformed_image_path"])
+
+            if not transformed_path.exists():
+                raise RuntimeError(f"Transformed image not found: {transformed_path}")
+
+            # Copy to output directory with our naming convention
+            output_image = self.output_dir / f"{self.image_stem}_transformed_{self.timestamp}.jpg"
+            import shutil
+            shutil.copy2(transformed_path, output_image)
 
             print(f"\n✓ Transformation complete")
-            print(f"  Saved to: {output_image}")
+            print(f"  Original from service: {transformed_path}")
+            print(f"  Copied to: {output_image}")
+
+            # Save JSON for reference
+            json_file = self.output_dir / f"{self.image_stem}_prompts_{self.timestamp}.json"
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump(analysis_json, f, indent=2)
+            print(f"  JSON prompts saved: {json_file}")
 
             return output_image
 
-        except subprocess.TimeoutExpired:
-            raise RuntimeError(f"Transformation timed out after {num_issues * 400} seconds")
+        except requests.exceptions.Timeout:
+            raise RuntimeError(f"Transformation timed out after {timeout} seconds")
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Failed to call Picture Generation service: {e}")
         except Exception as e:
-            raise RuntimeError(f"Failed to run transformation: {e}")
+            raise RuntimeError(f"Transformation error: {e}")
 
     def run(self, keep_services: bool = False):
         """
@@ -294,11 +286,14 @@ Examples:
   python analyze_and_transform_image.py room.jpg --keep-services
 
 Workflow:
-  1. Start RAG-Langchain service (analyzes image)
-  2. Start Picture-Generation service (transforms image)
-  3. Analyze image → Get JSON recommendations
-  4. Transform image → Apply recommendations
-  5. Save results and stop services (unless --keep-services)
+  1. Start both microservices (RAG-Langchain + Picture-Generation)
+  2. Analyze image via RAG API → Get JSON recommendations
+  3. Transform image via Picture-Generation API → Apply recommendations
+  4. Save results and stop services (unless --keep-services)
+
+Note:
+  Both services run as FastAPI microservices for web frontend compatibility.
+  Picture-Generation uses asyncio subprocess internally for long-running tasks.
         """
     )
 

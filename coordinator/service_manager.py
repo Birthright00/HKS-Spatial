@@ -204,9 +204,16 @@ class ServiceManager:
             venv_path=ServiceConfig.RAG_LANGCHAIN_PATH / ".venv"
         )
 
-        # Note: Picture generation runs as direct subprocess (not a service)
-        # The transform_image.py script is called directly by analyze_and_transform_image.py
-        # No api_server.py needed for picture-generation
+        # Picture generation service (uses myenv)
+        # Uses asyncio subprocess internally to avoid threading deadlocks
+        self.services["image_gen"] = SubmoduleService(
+            name="Picture-Generation",
+            path=ServiceConfig.IMAGE_GEN_PATH,
+            script="api_server.py",
+            host=ServiceConfig.IMAGE_GEN_SERVICE_HOST,
+            port=ServiceConfig.IMAGE_GEN_SERVICE_PORT,
+            venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
+        )
 
     def start_all(self) -> bool:
         """Start all services"""
