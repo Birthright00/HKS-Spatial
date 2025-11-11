@@ -1,0 +1,87 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+myenv/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# ChromaDB
+chroma_db/
+chroma_db_*/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Model files
+*.pkl
+*.pth
+*.pt
+*.h5
+*.onnx
+
+# Images (exclude test images if needed)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+!example.jpg
+
+# Service-specific
+# RAG-Langchain/.venv/
+# picture-generation-verbose-api-module/myenv/
+coordinator/__pycache__/
+
+# OS specific
+Thumbs.db
+.DS_Store
