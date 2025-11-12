@@ -48,27 +48,16 @@ else
     source myenv/bin/activate
     python -m pip install --upgrade pip
 
-    # Detect CUDA availability
-    echo "Detecting CUDA availability..."
-    DEVICE=$(python -c "try:
-    import torch
-    print('cuda' if torch.cuda.is_available() else 'cpu')
-except ImportError:
-    print('none')
-" 2>/dev/null)
-
-    if [ "$DEVICE" = "none" ]; then
-        echo "No PyTorch found. Attempting CUDA installation..."
-        echo "If this fails, the script will retry with CPU-only version."
+    # Detect NVIDIA GPU using nvidia-smi
+    echo "Detecting NVIDIA GPU..."
+    if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
+        echo "NVIDIA GPU detected. Installing CUDA version of PyTorch..."
         if ! pip install -r requirements.txt; then
             echo "CUDA installation failed. Installing CPU-only version..."
             pip install -r requirements-cpu.txt
         fi
-    elif [ "$DEVICE" = "cuda" ]; then
-        echo "CUDA detected. Installing GPU-accelerated PyTorch..."
-        pip install -r requirements.txt
     else
-        echo "No CUDA detected. Installing CPU-only PyTorch..."
+        echo "No NVIDIA GPU detected. Installing CPU-only PyTorch..."
         pip install -r requirements-cpu.txt
     fi
 
