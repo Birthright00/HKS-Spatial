@@ -39,7 +39,7 @@ HKS-Spatial/
 git clone --recursive https://github.com/Birthright00/HKS-Spatial.git
 ```
 
-### 1. Run Setup Script
+### 2. Run Setup Script
 
 **Windows**:
 ```bash
@@ -65,7 +65,7 @@ pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 --extra-index-url https
 ```
 The code automatically uses GPU if available at runtime.
 
-### 2. Configure API Keys
+### 3. Configure API Keys
 
 Edit `.env` and add your API keys:
 
@@ -73,6 +73,14 @@ Edit `.env` and add your API keys:
 OPENAI_API_KEY=your_openai_key_here
 NANOBANANA_API_KEY=your_nanobanana_key_here
 ELEVENLABS_API_KEY=your_elevenlabs_key_here
+```
+
+## Updates
+
+To update the code in the submodules recursively:
+
+```bash
+git submodule update --recursive
 ```
 
 ## Usage
@@ -176,18 +184,6 @@ pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 --extra-index-url https
 dos2unix setup.sh
 # or
 sed -i 's/\r$//' setup.sh
-```
-
-**File encoding errors on Mac/Linux** (UnicodeDecodeError during pip install):
-```bash
-# Fix UTF-16 encoded requirements.txt files
-cd RAG-Langchain
-iconv -f UTF-16LE -t UTF-8 requirements.txt > requirements_utf8.txt
-mv requirements_utf8.txt requirements.txt
-cd ..
-
-# Or reset from git if cloned from repository
-git checkout RAG-Langchain/requirements.txt
 ```
 
 ## Architecture Notes
