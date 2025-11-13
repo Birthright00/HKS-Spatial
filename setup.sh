@@ -11,12 +11,12 @@ echo
 
 # Check if Python is available
 if ! command -v python3 &> /dev/null; then
-    echo "Error: Python 3 not found. Please install Python 3.8 or higher."
+    echo "Error: Python 3 not found. Please install Python 3.13."
     exit 1
 fi
 
 echo "[1/5] Creating coordinator virtual environment..."
-python3 -m venv venv
+python3.13 -m venv venv
 
 echo "[2/5] Installing coordinator dependencies..."
 source venv/bin/activate
@@ -48,17 +48,30 @@ else
     source myenv/bin/activate
     python -m pip install --upgrade pip
 
-    # Detect NVIDIA GPU using nvidia-smi
-    echo "Detecting NVIDIA GPU..."
-    if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
-        echo "NVIDIA GPU detected. Installing CUDA version of PyTorch..."
-        if ! pip install -r requirements.txt; then
-            echo "CUDA installation failed. Installing CPU-only version..."
-            pip install -r requirements-cpu.txt
-        fi
-    else
+    # Detect NVIDIA GPU and CUDA support
+    echo "Detecting NVIDIA GPU and CUDA support..."
+
+    # First check if nvidia-smi exists and can query GPU
+    if ! command -v nvidia-smi &> /dev/null || ! nvidia-smi --query-gpu=driver_version --format=csv,noheader &> /dev/null; then
         echo "No NVIDIA GPU detected. Installing CPU-only PyTorch..."
         pip install -r requirements-cpu.txt
+    else
+        # GPU exists, now try installing CUDA version and verify
+        echo "NVIDIA GPU detected. Installing CUDA version of PyTorch..."
+        if pip install -r requirements.txt; then
+            # Verify CUDA is accessible to PyTorch
+            echo "Verifying CUDA is accessible to PyTorch..."
+            if ! python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'" &> /dev/null; then
+                echo "Warning: PyTorch installed but CUDA not accessible. Reinstalling CPU version..."
+                pip uninstall -y torch torchvision
+                pip install -r requirements-cpu.txt
+            else
+                echo "CUDA installation successful!"
+            fi
+        else
+            echo "CUDA installation failed (CUDA toolkit may not be installed). Installing CPU-only version..."
+            pip install -r requirements-cpu.txt
+        fi
     fi
 
     deactivate
