@@ -1,0 +1,33 @@
+# Git attributes for cross-platform compatibility
+# Ensures consistent line endings and encoding across Windows, Mac, and Linux
+
+# Text files - ensure UTF-8 encoding and LF line endings in repository
+*.txt text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+
+# Batch files - Windows CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files - do not modify
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.pdf binary
+*.pth binary
+*.pt binary
+*.pkl binary
+*.npz binary
+*.npy binary
+*.zip binary
+*.tar binary
+*.gz binary

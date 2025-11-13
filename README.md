@@ -33,6 +33,12 @@ HKS-Spatial/
 
 ## Setup
 
+### 1. Clone the repositary with submodules
+
+```bash
+git clone --recursive https://github.com/Birthright00/HKS-Spatial.git
+```
+
 ### 1. Run Setup Script
 
 **Windows**:
@@ -167,6 +173,18 @@ pip install -r requirements-cpu.txt
 dos2unix setup.sh
 # or
 sed -i 's/\r$//' setup.sh
+```
+
+**File encoding errors on Mac/Linux** (UnicodeDecodeError during pip install):
+```bash
+# Fix UTF-16 encoded requirements.txt files
+cd RAG-Langchain
+iconv -f UTF-16LE -t UTF-8 requirements.txt > requirements_utf8.txt
+mv requirements_utf8.txt requirements.txt
+cd ..
+
+# Or reset from git if cloned from repository
+git checkout RAG-Langchain/requirements.txt
 ```
 
 ## Architecture Notes
