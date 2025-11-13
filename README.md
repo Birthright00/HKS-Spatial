@@ -54,14 +54,16 @@ chmod +x setup.sh
 
 This will:
 - Create virtual environments for coordinator and both submodules
-- **Auto-detect CUDA** and install GPU or CPU version of PyTorch accordingly
-- Install all dependencies
+- Install all dependencies (CPU version of PyTorch by default)
 - Create `.env` file from template
 
-**Note on CUDA**: The setup script automatically detects if you have NVIDIA CUDA available:
-- **CUDA detected**: Installs GPU-accelerated PyTorch (faster processing)
-- **No CUDA**: Installs CPU-only PyTorch (works on all systems, slower)
-- The code automatically uses the best available device at runtime
+**Note on GPU Support**: The setup installs CPU-only PyTorch by default for maximum compatibility. For GPU acceleration, manually install the CUDA version after setup:
+```bash
+cd picture-generation-verbose-api-module
+source myenv/bin/activate  # or myenv\Scripts\activate on Windows
+pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
+```
+The code automatically uses GPU if available at runtime.
 
 ### 2. Configure API Keys
 
@@ -153,12 +155,13 @@ curl -X POST http://127.0.0.1:8002/transform \
 - Check API keys in `.env`
 - Run setup script again
 
-**Manual CPU-only installation**:
-If you want to force CPU-only installation:
+**GPU acceleration**:
+To enable GPU support after setup:
 ```bash
 cd picture-generation-verbose-api-module
 source myenv/bin/activate  # or myenv\Scripts\activate on Windows
-pip install -r requirements-cpu.txt
+pip uninstall torch torchvision
+pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
 ```
 
 **Port conflicts**:
@@ -193,5 +196,6 @@ git checkout RAG-Langchain/requirements.txt
 - Services communicate via FastAPI REST APIs
 - Coordinator manages service lifecycle and health checks
 - All API keys stored in single `.env` file in root directory
-- **CUDA auto-detection**: Code automatically uses GPU if available, falls back to CPU
+- **Default CPU installation** for maximum compatibility across all systems
+- Code automatically uses GPU if available at runtime (when CUDA version is manually installed)
 - Interior segmentation model loads to appropriate device at runtime

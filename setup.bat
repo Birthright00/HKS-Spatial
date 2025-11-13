@@ -51,17 +51,7 @@ if exist myenv (
     python -m venv myenv
     call myenv\Scripts\activate.bat
     python -m pip install --upgrade pip
-
-    REM Try CUDA version first, fallback to CPU if it fails
-    echo Attempting to install CUDA version of PyTorch...
-    pip install -r requirements.txt >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo CUDA installation failed. Installing CPU-only version...
-        pip install -r requirements-cpu.txt
-    ) else (
-        echo CUDA version installed successfully!
-    )
-
+    pip install -r requirements.txt
     call deactivate
     endlocal
 )

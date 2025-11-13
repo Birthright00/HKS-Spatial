@@ -47,16 +47,7 @@ else
     python3 -m venv myenv
     source myenv/bin/activate
     python -m pip install --upgrade pip
-
-    # Try CUDA version first, fallback to CPU if it fails
-    echo "Attempting to install CUDA version of PyTorch..."
-    if pip install -r requirements.txt &> /dev/null; then
-        echo "CUDA version installed successfully!"
-    else
-        echo "CUDA installation failed. Installing CPU-only version..."
-        pip install -r requirements-cpu.txt
-    fi
-
+    pip install -r requirements.txt
     deactivate
 fi
 cd ..
