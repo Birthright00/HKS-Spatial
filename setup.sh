@@ -30,7 +30,7 @@ cd RAG-Langchain
 if [ -d ".venv" ]; then
     echo "RAG-Langchain .venv already exists, skipping..."
 else
-    python3 -m venv .venv
+    python3.13 -m venv .venv
     source .venv/bin/activate
     python -m pip install --upgrade pip
     pip install -r requirements.txt
@@ -44,7 +44,7 @@ cd picture-generation-verbose-api-module
 if [ -d "myenv" ]; then
     echo "picture-generation myenv already exists, skipping..."
 else
-    python3 -m venv myenv
+    python3.13 -m venv myenv
     source myenv/bin/activate
     python -m pip install --upgrade pip
     pip install -r requirements.txt

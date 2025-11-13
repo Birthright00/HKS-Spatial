@@ -33,7 +33,7 @@ cd RAG-Langchain
 if exist .venv (
     echo RAG-Langchain .venv already exists, skipping...
 ) else (
-    python -m venv .venv
+    py -3.13 -m venv .venv
     call .venv\Scripts\activate.bat
     python -m pip install --upgrade pip
     pip install -r requirements.txt
@@ -48,7 +48,7 @@ if exist myenv (
     echo picture-generation myenv already exists, skipping...
 ) else (
     setlocal enabledelayedexpansion
-    python -m venv myenv
+    py -3.13 -m venv myenv
     call myenv\Scripts\activate.bat
     python -m pip install --upgrade pip
     pip install -r requirements.txt
