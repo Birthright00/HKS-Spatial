@@ -119,13 +119,22 @@ python analyze_and_transform_image.py room.jpg --keep-services
 
 ### Manual Service Control (Advanced)
 
+You need to activate the coordinator virtual environment first:
+
+**Windows**:
+```bash
+venv\Scripts\activate
+```
+
+**Unix/Mac**:
+```bash
+source venv/bin/activate
+```
+
+Then use these commands:
+
 **Start services**:
 ```bash
-# Windows
-venv\Scripts\python -m coordinator.main start
-
-# Unix/Mac
-source venv/bin/activate
 python -m coordinator.main start
 ```
 
@@ -137,6 +146,11 @@ python -m coordinator.main status
 **Stop services**:
 ```bash
 python -m coordinator.main stop
+```
+
+**Restart services**:
+```bash
+python -m coordinator.main restart
 ```
 
 ### API Endpoints
