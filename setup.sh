@@ -48,30 +48,13 @@ else
     source myenv/bin/activate
     python -m pip install --upgrade pip
 
-    # Detect NVIDIA GPU and CUDA support
-    echo "Detecting NVIDIA GPU and CUDA support..."
-
-    # First check if nvidia-smi exists and can query GPU
-    if ! command -v nvidia-smi &> /dev/null || ! nvidia-smi --query-gpu=driver_version --format=csv,noheader &> /dev/null; then
-        echo "No NVIDIA GPU detected. Installing CPU-only PyTorch..."
-        pip install -r requirements-cpu.txt
+    # Try CUDA version first, fallback to CPU if it fails
+    echo "Attempting to install CUDA version of PyTorch..."
+    if pip install -r requirements.txt &> /dev/null; then
+        echo "CUDA version installed successfully!"
     else
-        # GPU exists, now try installing CUDA version and verify
-        echo "NVIDIA GPU detected. Installing CUDA version of PyTorch..."
-        if pip install -r requirements.txt; then
-            # Verify CUDA is accessible to PyTorch
-            echo "Verifying CUDA is accessible to PyTorch..."
-            if ! python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'" &> /dev/null; then
-                echo "Warning: PyTorch installed but CUDA not accessible. Reinstalling CPU version..."
-                pip uninstall -y torch torchvision
-                pip install -r requirements-cpu.txt
-            else
-                echo "CUDA installation successful!"
-            fi
-        else
-            echo "CUDA installation failed (CUDA toolkit may not be installed). Installing CPU-only version..."
-            pip install -r requirements-cpu.txt
-        fi
+        echo "CUDA installation failed. Installing CPU-only version..."
+        pip install -r requirements-cpu.txt
     fi
 
     deactivate

@@ -52,40 +52,14 @@ if exist myenv (
     call myenv\Scripts\activate.bat
     python -m pip install --upgrade pip
 
-    REM Detect NVIDIA GPU and CUDA support
-    echo Detecting NVIDIA GPU and CUDA support...
-
-    REM First check if nvidia-smi exists and can query GPU
-    nvidia-smi --query-gpu=driver_version --format=csv,noheader >nul 2>&1
+    REM Try CUDA version first, fallback to CPU if it fails
+    echo Attempting to install CUDA version of PyTorch...
+    pip install -r requirements.txt >nul 2>&1
     if %errorlevel% neq 0 (
-        echo No NVIDIA GPU detected. Installing CPU-only PyTorch...
+        echo CUDA installation failed. Installing CPU-only version...
         pip install -r requirements-cpu.txt
     ) else (
-        REM GPU exists, now verify CUDA is actually available
-        echo NVIDIA GPU detected. Verifying CUDA availability...
-        python -c "import sys; sys.exit(0)" >nul 2>&1
-        if %errorlevel% neq 0 (
-            echo Python check failed. Installing CPU-only PyTorch...
-            pip install -r requirements-cpu.txt
-        ) else (
-            REM Try installing CUDA version, fallback to CPU if it fails
-            echo Installing CUDA version of PyTorch...
-            pip install -r requirements.txt
-            if %errorlevel% neq 0 (
-                echo CUDA installation failed ^(CUDA toolkit may not be installed^). Installing CPU-only version...
-                pip install -r requirements-cpu.txt
-            ) else (
-                echo Verifying CUDA is accessible to PyTorch...
-                python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'" >nul 2>&1
-                if %errorlevel% neq 0 (
-                    echo Warning: PyTorch installed but CUDA not accessible. Reinstalling CPU version...
-                    pip uninstall -y torch torchvision
-                    pip install -r requirements-cpu.txt
-                ) else (
-                    echo CUDA installation successful!
-                )
-            )
-        )
+        echo CUDA version installed successfully!
     )
 
     call deactivate
