@@ -53,7 +53,7 @@ class ImageAnalysisTransformPipeline:
         self.image_stem = self.image_path.stem
 
     def start_services(self):
-        """Start both RAG and Picture Generation services"""
+        """Start both RAG and Picture Generation and Verbose Services"""
         print("\n" + "="*70)
         print("STARTING MICROSERVICES")
         print("="*70)
@@ -131,7 +131,7 @@ class ImageAnalysisTransformPipeline:
 
     def transform_image(self, analysis_json: dict) -> Path:
         """
-        Step 2: Transform image with Picture Generation service API
+        Step 2: Transform image with Picture Generation and Verbose Service API
 
         Args:
             analysis_json: JSON analysis from step 1
@@ -145,13 +145,13 @@ class ImageAnalysisTransformPipeline:
 
         image_gen_service = self.manager.get_service("image_gen")
         if not image_gen_service or not image_gen_service.check_health():
-            raise RuntimeError("Picture Generation service is not available")
+            raise RuntimeError("Picture Generation and Verbose Service is not available")
 
         num_issues = len(analysis_json.get("issues", []))
         print(f"\nNumber of issues to transform: {num_issues}")
         print(f"This may take a while - processing {num_issues} issues sequentially...")
         print("Each issue involves segmentation + image editing (~3-5 minutes per issue)")
-        print(f"\nCalling Picture Generation service at: {image_gen_service.url}")
+        print(f"\nCalling Picture Generation and Verbose Service at: {image_gen_service.url}")
 
         try:
             # Prepare multipart form data
@@ -171,7 +171,7 @@ class ImageAnalysisTransformPipeline:
                 )
 
             if response.status_code != 200:
-                raise RuntimeError(f"Picture Generation service error: {response.text}")
+                raise RuntimeError(f"Picture Generation and Verbose Service error: {response.text}")
 
             result = response.json()
 
@@ -204,7 +204,7 @@ class ImageAnalysisTransformPipeline:
         except requests.exceptions.Timeout:
             raise RuntimeError(f"Transformation timed out after {timeout} seconds")
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Failed to call Picture Generation service: {e}")
+            raise RuntimeError(f"Failed to call Picture Generation and Verbose Service: {e}")
         except Exception as e:
             raise RuntimeError(f"Transformation error: {e}")
 

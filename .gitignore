@@ -87,3 +87,7 @@ Thumbs.db
 .DS_Store
 
 output/
+audio_input/
+text_input/
+audio_output/
+text_output/

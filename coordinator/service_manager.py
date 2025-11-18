@@ -204,7 +204,7 @@ class ServiceManager:
             venv_path=ServiceConfig.RAG_LANGCHAIN_PATH / ".venv"
         )
 
-        # Picture generation service (uses myenv)
+        # Picture Generation and Verbose Service (uses myenv)
         # Uses asyncio subprocess internally to avoid threading deadlocks
         self.services["image_gen"] = SubmoduleService(
             name="Picture-Generation",
