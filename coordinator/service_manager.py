@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Dict, Optional
 import logging
 from enum import Enum
+import signal
+import sys
 
 from .config import ServiceConfig
 
@@ -108,6 +110,20 @@ class SubmoduleService:
             # Services now use lazy loading, so startup should be fast
             max_retries = 60  # 1 minute (generous for slow systems)
             for i in range(max_retries):
+                # Check if process has crashed
+                if self.process.poll() is not None:
+                    self.status = ServiceStatus.ERROR
+                    logger.error(f"✗ {self.name} process exited unexpectedly (exit code: {self.process.returncode})")
+
+                    # Print stderr for debugging
+                    if self.process.stderr:
+                        stderr_output = self.process.stderr.read()
+                        if stderr_output:
+                            logger.error(f"  Service error output: {stderr_output[:500]}")
+
+                    self._cleanup_failed_process()
+                    return False
+
                 if self.check_health():
                     self.status = ServiceStatus.RUNNING
                     logger.info(f"✓ {self.name} service started successfully on {self.url}")
@@ -119,6 +135,7 @@ class SubmoduleService:
 
                 time.sleep(1)
 
+            # Timeout reached
             self.status = ServiceStatus.ERROR
             logger.error(f"✗ {self.name} service failed to start within {max_retries} seconds")
 
@@ -128,12 +145,32 @@ class SubmoduleService:
                 if stderr_output:
                     logger.error(f"  Service error output: {stderr_output[:500]}")
 
+            # Clean up the failed process
+            self._cleanup_failed_process()
             return False
 
         except Exception as e:
             self.status = ServiceStatus.ERROR
             logger.error(f"✗ Failed to start {self.name}: {e}")
+            self._cleanup_failed_process()
             return False
+
+    def _cleanup_failed_process(self):
+        """Clean up a failed process to prevent hanging"""
+        if self.process is not None:
+            try:
+                if self.process.poll() is None:  # Process is still running
+                    logger.info(f"  Cleaning up failed {self.name} process...")
+                    self.process.terminate()
+                    try:
+                        self.process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        logger.warning(f"  Force killing {self.name} process...")
+                        self.process.kill()
+                        self.process.wait()
+                self.process = None
+            except Exception as e:
+                logger.error(f"  Error cleaning up {self.name} process: {e}")
 
     def stop(self) -> bool:
         """Stop the service"""
@@ -189,7 +226,24 @@ class ServiceManager:
 
     def __init__(self):
         self.services: Dict[str, SubmoduleService] = {}
+        self._shutdown_requested = False
         self._initialize_services()
+        self._setup_signal_handlers()
+
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        def signal_handler():
+            if not self._shutdown_requested:
+                logger.info("\nShutdown signal received. Stopping services gracefully...")
+                self._shutdown_requested = True
+                self.stop_all()
+                sys.exit(0)
+            else:
+                logger.warning("Force shutdown requested!")
+                sys.exit(1)
+
+        signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
+        signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
 
     def _initialize_services(self):
         """Initialize service configurations"""
@@ -226,23 +280,75 @@ class ServiceManager:
             venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
         )
 
-    def start_all(self) -> bool:
-        """Start all services"""
+    def start_all(self, exclude: list[str] = None) -> bool:
+        """
+        Start all services, continuing even if some fail
+
+        Args:
+            exclude: List of service keys to exclude from startup (e.g., ['verbose'])
+
+        Returns:
+            True if at least one service started successfully
+        """
+        exclude = exclude or []
         logger.info("Starting all services...")
+        if exclude:
+            logger.info(f"  Excluding: {', '.join(exclude)}")
 
-        success = True
-        for service in self.services.values():
-            if not service.start():
-                success = False
+        failed_services = []
+        successful_services = []
+        skipped_services = []
 
-        return success
+        for key, service in self.services.items():
+            if key in exclude:
+                skipped_services.append(service.name)
+                logger.info(f"⊘ Skipping {service.name} (excluded)")
+                continue
+
+            try:
+                if service.start():
+                    successful_services.append(service.name)
+                else:
+                    failed_services.append(service.name)
+                    logger.warning(f"⚠ Skipping {service.name} - failed to start. Continuing with other services...")
+            except KeyboardInterrupt:
+                logger.info("\nStartup interrupted by user")
+                self.stop_all()
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error starting {service.name}: {e}")
+                failed_services.append(service.name)
+
+        # Summary
+        logger.info("\n" + "="*60)
+        if successful_services:
+            logger.info(f"✓ Successfully started: {', '.join(successful_services)}")
+        if failed_services:
+            logger.warning(f"✗ Failed to start: {', '.join(failed_services)}")
+            logger.info("  Continuing with available services...")
+        if skipped_services:
+            logger.info(f"⊘ Skipped: {', '.join(skipped_services)}")
+        logger.info("="*60 + "\n")
+
+        return len(successful_services) > 0
 
     def stop_all(self):
-        """Stop all services"""
+        """Stop all services, including failed ones"""
         logger.info("Stopping all services...")
 
         for service in self.services.values():
-            service.stop()
+            try:
+                # Stop services that are running or in error state
+                if service.status != ServiceStatus.STOPPED:
+                    service.stop()
+            except Exception as e:
+                logger.error(f"Error stopping {service.name}: {e}")
+                # Force cleanup
+                if service.process:
+                    try:
+                        service.process.kill()
+                    except:
+                        pass
 
     def restart_all(self) -> bool:
         """Restart all services"""

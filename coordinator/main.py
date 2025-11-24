@@ -30,15 +30,16 @@ def cmd_start(args, manager: ServiceManager):
             print(f"Available services: {', '.join(manager.services.keys())}")
             sys.exit(1)
     else:
-        # Start all services
-        success = manager.start_all()
+        # Start all services (excluding any specified)
+        exclude = args.exclude.split(',') if args.exclude else []
+        success = manager.start_all(exclude=exclude)
         print("\n=== Services Status ===")
         for name, info in manager.get_status().items():
             status_emoji = "✓" if info["healthy"] else "✗"
             print(f"{status_emoji} {name}: {info['status']} ({info['url']})")
 
         if success:
-            print("\n✓ All services started successfully!")
+            print("\n✓ Services started!")
             print("\nServices are running. Press Ctrl+C to stop.\n")
             try:
                 # Keep running
@@ -49,7 +50,7 @@ def cmd_start(args, manager: ServiceManager):
                 print("\n\nShutting down...")
                 manager.stop_all()
         else:
-            print("\n✗ Some services failed to start")
+            print("\n✗ No services could be started")
             sys.exit(1)
 
 
@@ -112,6 +113,9 @@ Examples:
   # Start all services
   python -m coordinator.main start
 
+  # Start all services except verbose (to save credits during testing)
+  e.g: python -m coordinator.main start --exclude verbose
+
   # Start specific service
   python -m coordinator.main start --service rag
 
@@ -130,6 +134,7 @@ Note: For image analysis and transformation, use analyze_and_transform_image.py
     # Start command
     start_parser = subparsers.add_parser("start", help="Start services")
     start_parser.add_argument("--service", help="Start specific service (rag, image_gen, verbose)")
+    start_parser.add_argument("--exclude", help="Exclude services (comma-separated, e.g., 'verbose' or 'verbose,image_gen')")
 
     # Stop command
     stop_parser = subparsers.add_parser("stop", help="Stop services")
