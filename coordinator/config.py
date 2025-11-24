@@ -30,12 +30,14 @@ class ServiceConfig:
     RAG_SERVICE_PORT = int(os.getenv("RAG_SERVICE_PORT", "8001"))
     IMAGE_GEN_SERVICE_PORT = int(os.getenv("IMAGE_GEN_SERVICE_PORT", "8002"))
     VERBOSE_SERVICE_PORT = int(os.getenv("VERBOSE_SERVICE_PORT", "8003"))
+    DETECTION_SERVICE_PORT = int(os.getenv("DETECTION_SERVICE_PORT", "8004"))
     COORDINATOR_PORT = int(os.getenv("COORDINATOR_PORT", "8000"))
 
     # Service hosts
     RAG_SERVICE_HOST = os.getenv("RAG_SERVICE_HOST", "127.0.0.1")
     IMAGE_GEN_SERVICE_HOST = os.getenv("IMAGE_GEN_SERVICE_HOST", "127.0.0.1")
     VERBOSE_SERVICE_HOST = os.getenv("VERBOSE_SERVICE_HOST", "127.0.0.1")
+    DETECTION_SERVICE_HOST = os.getenv("DETECTION_SERVICE_HOST", "127.0.0.1")
     COORDINATOR_HOST = os.getenv("COORDINATOR_HOST", "0.0.0.0")
 
     # Paths
@@ -67,4 +69,5 @@ class ServiceConfig:
             "rag": f"http://{cls.RAG_SERVICE_HOST}:{cls.RAG_SERVICE_PORT}",
             "image_gen": f"http://{cls.IMAGE_GEN_SERVICE_HOST}:{cls.IMAGE_GEN_SERVICE_PORT}",
             "verbose": f"http://{cls.VERBOSE_SERVICE_HOST}:{cls.VERBOSE_SERVICE_PORT}",
+            "detection": f"http://{cls.DETECTION_SERVICE_HOST}:{cls.DETECTION_SERVICE_PORT}",
         }

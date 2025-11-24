@@ -280,6 +280,17 @@ class ServiceManager:
             venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
         )
 
+        # Detection Service - Florence-2 Object Detection (uses myenv)
+        # Provides spatial coordinate identification for analysis recommendations
+        self.services["detection"] = SubmoduleService(
+            name="Detection-Service",
+            path=ServiceConfig.IMAGE_GEN_PATH,
+            script="detection_server.py",
+            host=ServiceConfig.DETECTION_SERVICE_HOST,
+            port=ServiceConfig.DETECTION_SERVICE_PORT,
+            venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
+        )
+
     def start_all(self, exclude: list[str] = None) -> bool:
         """
         Start all services, continuing even if some fail
