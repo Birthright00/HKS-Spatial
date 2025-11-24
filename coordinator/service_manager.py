@@ -232,7 +232,7 @@ class ServiceManager:
 
     def _setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""
-        def signal_handler():
+        def signal_handler(signum, frame):
             if not self._shutdown_requested:
                 logger.info("\nShutdown signal received. Stopping services gracefully...")
                 self._shutdown_requested = True
