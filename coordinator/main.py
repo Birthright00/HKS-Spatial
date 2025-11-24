@@ -129,7 +129,7 @@ Note: For image analysis and transformation, use analyze_and_transform_image.py
 
     # Start command
     start_parser = subparsers.add_parser("start", help="Start services")
-    start_parser.add_argument("--service", help="Start specific service (rag, image_gen)")
+    start_parser.add_argument("--service", help="Start specific service (rag, image_gen, verbose)")
 
     # Stop command
     stop_parser = subparsers.add_parser("stop", help="Stop services")
