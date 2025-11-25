@@ -6,8 +6,6 @@ const fs = require('fs');
 const Assessment = require('../models/Assessment');
 const { protect } = require('../middleware/authMiddleware');
 
-console.log('Loading assessment routes...');
-
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -24,12 +22,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// @desc    Upload and save assessment image
-// @route   POST /api/assessments
-// @access  Private
+// POST /api/assessments
 router.post('/', protect, upload.single('image'), async (req, res) => {
   console.log('Processing POST /api/assessments request...');
-  
+
   try {
     if (!req.file) {
       console.log('Error: No file in request');
@@ -48,7 +44,7 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
       user: req.user._id,
       selectedIssues: parsedIssues,
       comments: req.body.comments || '',
-      imagePath: `/uploads/${req.file.filename}`
+      imagePath: `/uploads/${req.file.filename}`,
     });
 
     const saved = await doc.save();
