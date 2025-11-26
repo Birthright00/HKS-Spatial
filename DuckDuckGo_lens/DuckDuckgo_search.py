@@ -47,6 +47,55 @@ def find_verified_sellers(product_description, product_type="furniture", locatio
         return [], 0
 
 
+def refine_search_query(original_query, product_type, previous_attempts):
+    """Use LLM to refine search query when no results are found"""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        print("[X] OpenAI API key not configured")
+        return None
+    try:
+        client = OpenAI(api_key=api_key)
+
+        attempts_str = ", ".join([f'"{q}"' for q in previous_attempts])
+
+        prompt = f"""The search query "{original_query}" (product type: {product_type}) did not return any valid sellers.
+
+Previous attempts that failed: {attempts_str}
+
+Please provide an alternative search query that:
+1. Is BROADER or uses SYNONYMS (don't just reorder words)
+2. Uses more common/general terms consumers actually search for
+3. Removes overly specific details if present
+4. Keeps the core product type and essential attributes
+
+STRATEGIES:
+- Use color synonyms: "burgundy" → "red", "beige" → "cream/tan", "muted" → "neutral"
+- Simplify materials: "slip-resistant vinyl" → "vinyl flooring"
+- Broaden categories: "LED recessed downlights" → "LED ceiling lights" → "ceiling lights"
+- Use alternatives: "wall art" → "wall decor" or "framed prints"
+- Try different phrasings: "closed storage units" → "storage cabinets" or "storage furniture"
+
+Return ONLY the new search query (3-5 words, no explanation):
+
+Examples:
+- Original: "burgundy sofa" → Alternative: "red sofa"
+- Original: "slip-resistant vinyl beige" → Alternative: "vinyl flooring cream"
+- Original: "simple wall art muted tones" → Alternative: "wall decor neutral"
+- Original: "LED recessed downlights" → Alternative: "LED ceiling lights"
+- Original: "closed storage units" → Alternative: "storage cabinets"""
+
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        refined_query = completion.choices[0].message.content.strip().strip('"')
+        return refined_query
+    except Exception as e:
+        print(f"[X] Query refinement failed: {e}")
+        return None
+
+
 def extract_search_query(item_name, recommendation):
     """Use LLM to extract product search query and type from recommendation"""
     api_key = os.getenv("OPENAI_API_KEY")
@@ -85,7 +134,7 @@ Examples:
   → NEEDS_PURCHASE: NO | PRODUCT_TYPE: NONE | SEARCH_QUERY: NONE
 
 - "Remove unnecessary items and organize in closed storage units"
-  → NEEDS_PURCHASE: YES | PRODUCT_TYPE: furniture | SEARCH_QUERY: closed storage units
+  → NEEDS_PURCHASE: YES | PRODUCT_TYPE: furniture | SEARCH_QUERY: storage units
 
 - "Install LED ceiling lights providing 450 lux at 3000K"
   → NEEDS_PURCHASE: YES | PRODUCT_TYPE: lighting | SEARCH_QUERY: LED ceiling lights
@@ -193,16 +242,40 @@ if __name__ == "__main__":
             print(f"  -> Product Type: {product_type}")
             print(f"  -> Searching: {search_query}")
 
-            # Search for sellers
-            verified_sellers, _ = find_verified_sellers(search_query, product_type, location, target_verified)
+            # Search for sellers with retry mechanism
+            verified_sellers = []
+            max_retries = 3
+            current_query = search_query
+            attempted_queries = [search_query]
+
+            for attempt in range(max_retries):
+                verified_sellers, _ = find_verified_sellers(current_query, product_type, location, target_verified)
+
+                if verified_sellers:
+                    print(f"  [OK] Found {len(verified_sellers)} sellers")
+                    break
+                else:
+                    if attempt < max_retries - 1:
+                        print(f"  [X] No verified sellers found, refining query...")
+                        # Ask LLM to refine the search query
+                        refined_query = refine_search_query(current_query, product_type, attempted_queries)
+                        if refined_query and refined_query not in attempted_queries:
+                            current_query = refined_query
+                            attempted_queries.append(refined_query)
+                            print(f"  -> Retry {attempt + 1}/{max_retries - 1}: {current_query}")
+                        else:
+                            print(f"  [X] Could not generate new query variation")
+                            break
+                    else:
+                        print(f"  [X] No verified sellers found after {max_retries} attempts")
 
             if verified_sellers:
                 # Add website info to issue
                 issue['Website name'] = [urlparse(s['url']).netloc.replace('www.', '') for s in verified_sellers]
                 issue['Website link'] = [s['url'] for s in verified_sellers]
-                print(f"  [OK] Found {len(verified_sellers)} sellers")
-            else:
-                print(f"  [X] No verified sellers found")
+                # Store the successful query if it was refined
+                if current_query != search_query:
+                    issue['Search query used'] = current_query
 
         # Overwrite original JSON file
         with open(json_file, 'w', encoding='utf-8') as f:
