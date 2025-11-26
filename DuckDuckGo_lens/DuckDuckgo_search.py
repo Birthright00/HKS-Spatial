@@ -18,13 +18,16 @@ def search_with_duckduckgo(query, num_results=20):
         return []
 
 
-def find_verified_furniture_sellers(furniture_description, location="Singapore", target_count=10):
+def find_verified_sellers(product_description, product_type="furniture", location="Singapore", target_count=10):
+    """Find verified sellers for any product type (furniture, lighting, wall art, etc.)"""
     try:
         from webpage_analyzer import WebpageAnalyzer
 
         analyzer = WebpageAnalyzer()
         verified_sellers = []
-        query = f"buy {furniture_description} {location} furniture store"
+
+        # Create more specific search queries based on product type
+        query = f"buy {product_description} {location}"
         results = search_with_duckduckgo(query, num_results=target_count * 2)
 
         if not results:
@@ -34,7 +37,7 @@ def find_verified_furniture_sellers(furniture_description, location="Singapore",
         for url in results:
             if len(verified_sellers) >= target_count:
                 break
-            is_selling, reason = analyzer.verify_url_sells_furniture(url, furniture_description)
+            is_selling, reason = analyzer.verify_url_sells_product(url, product_description, product_type, location)
             if is_selling:
                 verified_sellers.append({'url': url, 'reason': reason})
 
@@ -44,33 +47,90 @@ def find_verified_furniture_sellers(furniture_description, location="Singapore",
         return [], 0
 
 
-def extract_search_query(recommendation):
-    """Use LLM to extract furniture search query from recommendation"""
-    api_key = os.getenv("VITE_OPENROUTER_API_KEY")
+def extract_search_query(item_name, recommendation):
+    """Use LLM to extract product search query and type from recommendation"""
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("[X] OpenRouter API key not configured")
-        return None
+        print("[X] OpenAI API key not configured")
+        return None, None
     try:
-        client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
-        prompt = f"""Extract the furniture item to search for from this recommendation.
+        client = OpenAI(api_key=api_key)
+        prompt = f"""Analyze this item and recommendation to determine if a product search is needed, and if so, what to search for.
 
+Item: "{item_name}"
 Recommendation: "{recommendation}"
 
-Return ONLY the furniture item name in a simple, searchable format (e.g., "solid color rug", "burgundy sofa", "light filtering blinds").
-Keep it under 8 words. Do not include brand names or specific measurements."""
+CRITICAL FIRST STEP - Determine if this requires purchasing anything:
+- If the recommendation is about REARRANGING, ORGANIZING, REMOVING, or REPOSITIONING existing items → NO PURCHASE NEEDED
+- If it mentions specific actions like "paint", "install", "replace", "add" with a specific product → PURCHASE NEEDED
+
+Based on the item and recommendation, provide:
+1. Needs Purchase: YES or NO
+2. Product Type: What category (only if purchase needed)
+3. Search Query: Simple, consumer-friendly search terms (only if purchase needed)
+
+SEARCH QUERY RULES (if purchase needed):
+- Strip ALL technical specs: lux, Kelvin (K), watts, voltage, LRV values, exact measurements
+- Strip unnecessary phrases: "for organization", "to enhance", "providing", "at"
+- Keep ONLY: core product name + essential descriptors (color, material, basic function)
+- Maximum 4-5 words, use common product names consumers actually search
+
+Return your answer in this exact format:
+NEEDS_PURCHASE: YES/NO
+PRODUCT_TYPE: [category or NONE]
+SEARCH_QUERY: [search terms or NONE]
+
+Examples:
+- "Rearrange furniture to create clear pathways"
+  → NEEDS_PURCHASE: NO | PRODUCT_TYPE: NONE | SEARCH_QUERY: NONE
+
+- "Remove unnecessary items and organize in closed storage units"
+  → NEEDS_PURCHASE: YES | PRODUCT_TYPE: furniture | SEARCH_QUERY: closed storage units
+
+- "Install LED ceiling lights providing 450 lux at 3000K"
+  → NEEDS_PURCHASE: YES | PRODUCT_TYPE: lighting | SEARCH_QUERY: LED ceiling lights
+
+- "Replace floor with slip-resistant vinyl in warm beige"
+  → NEEDS_PURCHASE: YES | PRODUCT_TYPE: flooring | SEARCH_QUERY: slip-resistant vinyl beige
+
+- "Repaint walls in warm cream (LRV 72) with matte finish"
+  → NEEDS_PURCHASE: YES | PRODUCT_TYPE: paint | SEARCH_QUERY: warm cream paint matte
+
+- "Replace sofa with burgundy fabric (LRV 20)"
+  → NEEDS_PURCHASE: YES | PRODUCT_TYPE: furniture | SEARCH_QUERY: burgundy sofa"""
 
         completion = client.chat.completions.create(
-            model="openai/gpt-oss-20b:free",
-            messages=[{"role": "user", "content": prompt}],
-            extra_headers={
-                "HTTP-Referer": "https://github.com/furniture-finder",
-                "X-Title": "Furniture Finder"
-            }
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
         )
-        return completion.choices[0].message.content.strip()
+
+        response = completion.choices[0].message.content.strip()
+
+        # Parse the response
+        needs_purchase = None
+        product_type = None
+        search_query = None
+
+        for line in response.split('\n'):
+            if 'NEEDS_PURCHASE:' in line:
+                needs_purchase = line.split('NEEDS_PURCHASE:')[1].strip().upper()
+            elif 'PRODUCT_TYPE:' in line:
+                product_type = line.split('PRODUCT_TYPE:')[1].strip()
+                if product_type == "NONE":
+                    product_type = None
+            elif 'SEARCH_QUERY:' in line:
+                search_query = line.split('SEARCH_QUERY:')[1].strip()
+                if search_query == "NONE":
+                    search_query = None
+
+        # If no purchase needed, return None for both
+        if needs_purchase == "NO":
+            return None, None
+
+        return product_type, search_query
     except Exception as e:
         print(f"[X] LLM extraction failed: {e}")
-        return None
+        return None, None
 
 
 def save_to_json(verified_sellers, output_file='verified_sellers.json'):
@@ -109,6 +169,7 @@ if __name__ == "__main__":
 
         # Process each issue
         for i, issue in enumerate(data.get('issues', []), 1):
+            item_name = issue.get('item', '')
             recommendation = issue.get('recommendation', '')
 
             # Skip if already has website info
@@ -121,16 +182,19 @@ if __name__ == "__main__":
 
             print(f"\n[{i}/{len(data['issues'])}] Processing: {issue['item']}")
 
-            # Extract search query using LLM
-            search_query = extract_search_query(recommendation)
-            if not search_query:
-                print(f"[X] Could not extract search query")
+            # Extract search query and product type using LLM
+            product_type, search_query = extract_search_query(item_name, recommendation)
+
+            # If no purchase needed, skip searching
+            if not search_query or not product_type:
+                print(f"  -> No purchase required (rearrangement/organization only)")
                 continue
 
+            print(f"  -> Product Type: {product_type}")
             print(f"  -> Searching: {search_query}")
 
-            # Search for furniture
-            verified_sellers, _ = find_verified_furniture_sellers(search_query, location, target_verified)
+            # Search for sellers
+            verified_sellers, _ = find_verified_sellers(search_query, product_type, location, target_verified)
 
             if verified_sellers:
                 # Add website info to issue
