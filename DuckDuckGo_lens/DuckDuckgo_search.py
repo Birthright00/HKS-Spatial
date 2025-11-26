@@ -1,5 +1,6 @@
 import json
 import os
+import argparse
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -45,7 +46,7 @@ def find_verified_furniture_sellers(furniture_description, location="Singapore",
 
 def extract_search_query(recommendation):
     """Use LLM to extract furniture search query from recommendation"""
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("VITE_OPENROUTER_API_KEY")
     if not api_key:
         print("[X] OpenRouter API key not configured")
         return None
@@ -89,9 +90,17 @@ def save_to_json(verified_sellers, output_file='verified_sellers.json'):
 
 
 if __name__ == "__main__":
-    json_file = "interior2_analysis_20251122_102657.json"
-    location = "Singapore"
-    target_verified = 5
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Search for furniture sellers using DuckDuckGo')
+    parser.add_argument('json_file', help='Path to the JSON file to process')
+    parser.add_argument('--location', default='Singapore', help='Location to search (default: Singapore)')
+    parser.add_argument('--target', type=int, default=5, help='Number of verified sellers to find (default: 5)')
+
+    args = parser.parse_args()
+
+    json_file = args.json_file
+    location = args.location
+    target_verified = args.target
 
     try:
         # Read JSON file
