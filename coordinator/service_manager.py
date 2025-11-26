@@ -291,6 +291,17 @@ class ServiceManager:
             venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
         )
 
+        # Product Search Service - DuckDuckGo-based intelligent product search (uses root venv)
+        # Provides LLM-powered product search with query refinement and seller verification
+        self.services["product_search"] = SubmoduleService(
+            name="Product-Search",
+            path=ServiceConfig.PRODUCT_SEARCH_PATH,
+            script="product_search_server.py",
+            host=ServiceConfig.PRODUCT_SEARCH_SERVICE_HOST,
+            port=ServiceConfig.PRODUCT_SEARCH_SERVICE_PORT,
+            venv_path=ServiceConfig.RAG_LANGCHAIN_PATH.parent / "venv"  # Use root venv
+        )
+
     def start_all(self, exclude: list[str] = None) -> bool:
         """
         Start all services, continuing even if some fail

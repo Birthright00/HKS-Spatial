@@ -31,6 +31,7 @@ class ServiceConfig:
     IMAGE_GEN_SERVICE_PORT = int(os.getenv("IMAGE_GEN_SERVICE_PORT", "8002"))
     VERBOSE_SERVICE_PORT = int(os.getenv("VERBOSE_SERVICE_PORT", "8003"))
     DETECTION_SERVICE_PORT = int(os.getenv("DETECTION_SERVICE_PORT", "8004"))
+    PRODUCT_SEARCH_SERVICE_PORT = int(os.getenv("PRODUCT_SEARCH_SERVICE_PORT", "8005"))
     COORDINATOR_PORT = int(os.getenv("COORDINATOR_PORT", "8000"))
 
     # Service hosts
@@ -38,11 +39,13 @@ class ServiceConfig:
     IMAGE_GEN_SERVICE_HOST = os.getenv("IMAGE_GEN_SERVICE_HOST", "127.0.0.1")
     VERBOSE_SERVICE_HOST = os.getenv("VERBOSE_SERVICE_HOST", "127.0.0.1")
     DETECTION_SERVICE_HOST = os.getenv("DETECTION_SERVICE_HOST", "127.0.0.1")
+    PRODUCT_SEARCH_SERVICE_HOST = os.getenv("PRODUCT_SEARCH_SERVICE_HOST", "127.0.0.1")
     COORDINATOR_HOST = os.getenv("COORDINATOR_HOST", "0.0.0.0")
 
     # Paths
     RAG_LANGCHAIN_PATH = ROOT_DIR / "RAG-Langchain"
     IMAGE_GEN_PATH = ROOT_DIR / "picture-generation-verbose-api-module"
+    PRODUCT_SEARCH_PATH = ROOT_DIR / "DuckDuckGo_lens"
 
     # Logging
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -70,4 +73,5 @@ class ServiceConfig:
             "image_gen": f"http://{cls.IMAGE_GEN_SERVICE_HOST}:{cls.IMAGE_GEN_SERVICE_PORT}",
             "verbose": f"http://{cls.VERBOSE_SERVICE_HOST}:{cls.VERBOSE_SERVICE_PORT}",
             "detection": f"http://{cls.DETECTION_SERVICE_HOST}:{cls.DETECTION_SERVICE_PORT}",
+            "product_search": f"http://{cls.PRODUCT_SEARCH_SERVICE_HOST}:{cls.PRODUCT_SEARCH_SERVICE_PORT}",
         }
