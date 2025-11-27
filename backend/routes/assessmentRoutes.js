@@ -44,6 +44,7 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
       user: req.user._id,
       selectedIssues: parsedIssues,
       comments: req.body.comments || '',
+      noChangeComments: req.body.noChangeComments || '',
       imagePath: `/uploads/${req.file.filename}`,
     });
 

@@ -70,6 +70,10 @@ app.use('/api/conversations', conversationRoutes);
 const assessmentRoutes = require('./routes/assessmentRoutes');
 app.use('/api/assessments', assessmentRoutes);
 
+// RAG Analysis Routes
+const ragAnalysisRoutes = require('./routes/ragAnalysisRoutes');
+app.use('/api/rag-analysis', ragAnalysisRoutes);
+
 // Static uploads
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {

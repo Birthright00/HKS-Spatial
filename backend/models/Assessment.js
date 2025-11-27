@@ -13,6 +13,9 @@ const assessmentSchema = new mongoose.Schema({
   comments: {
     type: String,
   },
+  noChangeComments: {
+    type: String,
+  },
   imagePath: {
     type: String,
     required: true,
