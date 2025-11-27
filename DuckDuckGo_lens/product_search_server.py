@@ -1,15 +1,11 @@
 """
 Product Search Microservice
 Provides API endpoints for intelligent product search and seller verification
-Supports async job pattern (primary) with sync fallback for compatibility.
 """
 
 import os
-import uuid
-from datetime import datetime
-from enum import Enum
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from DuckDuckgo_search import (
@@ -22,18 +18,9 @@ load_dotenv()
 
 app = FastAPI(
     title="Product Search Service",
-    description="Intelligent product search with LLM-powered query refinement and seller verification (Async + Sync modes)",
-    version="2.0.0"
+    description="Intelligent product search with LLM-powered query refinement and seller verification",
+    version="1.0.0"
 )
-
-# Job storage (in-memory for now, could be Redis in production)
-class JobStatus(str, Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-jobs: Dict[str, Dict[str, Any]] = {}
 
 
 # Request/Response Models
@@ -101,24 +88,6 @@ class BatchSearchResponse(BaseModel):
     results: List[Dict[str, Any]]
 
 
-class JobSubmitResponse(BaseModel):
-    """Response when submitting async job"""
-    job_id: str
-    status: str
-    message: str
-
-
-class JobStatusResponse(BaseModel):
-    """Response for job status check"""
-    job_id: str
-    status: str
-    progress: Optional[str] = None
-    result: Optional[BatchSearchResponse] = None
-    error: Optional[str] = None
-    created_at: Optional[str] = None
-    completed_at: Optional[str] = None
-
-
 # API Endpoints
 @app.get("/")
 async def root():
@@ -126,8 +95,7 @@ async def root():
     return {
         "status": "online",
         "service": "Product Search Service",
-        "version": "2.0.0",
-        "async_mode": True
+        "version": "1.0.0"
     }
 
 
@@ -214,212 +182,84 @@ async def search_product(request: SearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def run_batch_search(issues: List[Dict[str, Any]], location: str, target_sellers: int, max_retries: int, job_id: Optional[str] = None) -> BatchSearchResponse:
-    """
-    Core batch search logic (used by both sync and async endpoints).
-
-    Args:
-        issues: List of issues to process
-        location: Location for search
-        target_sellers: Number of sellers to find
-        max_retries: Maximum retry attempts
-        job_id: Optional job ID for tracking
-
-    Returns:
-        BatchSearchResponse with results
-    """
-    results = []
-    processed_count = 0
-
-    for idx, issue in enumerate(issues):
-        # Update job progress if async
-        if job_id and job_id in jobs:
-            jobs[job_id]["progress"] = f"Processing item {idx + 1}/{len(issues)}: {issue.get('item', 'unknown')}"
-
-        item_name = issue.get('item', '')
-        recommendation = issue.get('recommendation', '')
-
-        if not recommendation:
-            results.append(issue)
-            continue
-
-        # Skip if already processed
-        if 'Website name' in issue and 'Website link' in issue:
-            results.append(issue)
-            continue
-
-        # Extract search query and product type
-        product_type, search_query = extract_search_query(item_name, recommendation)
-
-        # Skip if no purchase needed
-        if not search_query or not product_type:
-            results.append(issue)
-            continue
-
-        # Search with retry mechanism
-        verified_sellers = []
-        current_query = search_query
-        attempted_queries = [search_query]
-
-        for attempt in range(max_retries):
-            sellers, _ = find_verified_sellers(
-                current_query,
-                product_type,
-                location,
-                target_sellers
-            )
-
-            if sellers:
-                verified_sellers = sellers
-                break
-            else:
-                if attempt < max_retries - 1:
-                    refined_query = refine_search_query(
-                        current_query,
-                        product_type,
-                        attempted_queries
-                    )
-                    if refined_query and refined_query not in attempted_queries:
-                        current_query = refined_query
-                        attempted_queries.append(refined_query)
-
-        # Add seller info to issue
-        if verified_sellers:
-            issue['Website name'] = [s['url'].split('/')[2].replace('www.', '') for s in verified_sellers]
-            issue['Website link'] = [s['url'] for s in verified_sellers]
-            if current_query != search_query:
-                issue['Search query used'] = current_query
-            processed_count += 1
-
-        results.append(issue)
-
-    return BatchSearchResponse(
-        total_issues=len(issues),
-        processed=processed_count,
-        results=results
-    )
-
-
 @app.post("/search/batch", response_model=BatchSearchResponse)
-async def batch_search_products_sync(request: BatchSearchRequest):
+async def batch_search_products(request: BatchSearchRequest):
     """
-    LEGACY SYNC ENDPOINT: Process multiple product searches in batch (blocking).
-    For tunnel/production use, prefer /search/batch/async endpoint.
+    Process multiple product searches in batch.
 
     Accepts a list of issues (same format as analysis JSON) and processes each one.
     Returns enhanced issues with seller information added.
     """
     try:
-        return run_batch_search(
-            issues=request.issues,
-            location=request.location,
-            target_sellers=request.target_sellers,
-            max_retries=request.max_retries,
-            job_id=None
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        results = []
+        processed_count = 0
 
+        for issue in request.issues:
+            item_name = issue.get('item', '')
+            recommendation = issue.get('recommendation', '')
 
-@app.post("/search/batch/async", response_model=JobSubmitResponse)
-async def batch_search_products_async(background_tasks: BackgroundTasks, request: BatchSearchRequest):
-    """
-    ASYNC ENDPOINT: Submit batch product search job (returns immediately with job_id).
-    Use /search/batch/status/{job_id} to poll for completion.
-    Recommended for tunnel/production use to avoid gateway timeouts.
+            if not recommendation:
+                results.append(issue)
+                continue
 
-    Args:
-        background_tasks: FastAPI background tasks
-        request: Batch search request
+            # Skip if already processed
+            if 'Website name' in issue and 'Website link' in issue:
+                results.append(issue)
+                continue
 
-    Returns:
-        Job ID for polling status
-    """
-    try:
-        # Generate unique job ID
-        job_id = str(uuid.uuid4())
+            # Extract search query and product type
+            product_type, search_query = extract_search_query(item_name, recommendation)
 
-        # Create job record
-        jobs[job_id] = {
-            "job_id": job_id,
-            "status": JobStatus.PENDING,
-            "progress": "Job queued",
-            "result": None,
-            "error": None,
-            "created_at": datetime.now().isoformat(),
-            "completed_at": None
-        }
+            # Skip if no purchase needed
+            if not search_query or not product_type:
+                results.append(issue)
+                continue
 
-        # Schedule background task
-        def process_job():
-            try:
-                jobs[job_id]["status"] = JobStatus.PROCESSING
+            # Search with retry mechanism
+            verified_sellers = []
+            current_query = search_query
+            attempted_queries = [search_query]
 
-                result = run_batch_search(
-                    issues=request.issues,
-                    location=request.location,
-                    target_sellers=request.target_sellers,
-                    max_retries=request.max_retries,
-                    job_id=job_id
+            for attempt in range(request.max_retries):
+                sellers, _ = find_verified_sellers(
+                    current_query,
+                    product_type,
+                    request.location,
+                    request.target_sellers
                 )
 
-                # Update job with result
-                jobs[job_id]["status"] = JobStatus.COMPLETED
-                jobs[job_id]["result"] = result
-                jobs[job_id]["completed_at"] = datetime.now().isoformat()
-                jobs[job_id]["progress"] = f"Batch search complete! Processed {result.processed}/{result.total_issues} items"
+                if sellers:
+                    verified_sellers = sellers
+                    break
+                else:
+                    if attempt < request.max_retries - 1:
+                        refined_query = refine_search_query(
+                            current_query,
+                            product_type,
+                            attempted_queries
+                        )
+                        if refined_query and refined_query not in attempted_queries:
+                            current_query = refined_query
+                            attempted_queries.append(refined_query)
 
-            except Exception as e:
-                import traceback
-                error_detail = f"{str(e)}\n{traceback.format_exc()}"
-                jobs[job_id]["status"] = JobStatus.FAILED
-                jobs[job_id]["error"] = error_detail
-                jobs[job_id]["completed_at"] = datetime.now().isoformat()
-                jobs[job_id]["progress"] = "Job failed with exception"
+            # Add seller info to issue
+            if verified_sellers:
+                issue['Website name'] = [s['url'].split('/')[2].replace('www.', '') for s in verified_sellers]
+                issue['Website link'] = [s['url'] for s in verified_sellers]
+                if current_query != search_query:
+                    issue['Search query used'] = current_query
+                processed_count += 1
 
-        # Add to background tasks
-        background_tasks.add_task(process_job)
+            results.append(issue)
 
-        print(f"[ASYNC] Job {job_id} submitted for batch search ({len(request.issues)} items)")
-
-        return JobSubmitResponse(
-            job_id=job_id,
-            status=JobStatus.PENDING,
-            message=f"Batch search job submitted. Poll /search/batch/status/{job_id} for progress."
+        return BatchSearchResponse(
+            total_issues=len(request.issues),
+            processed=processed_count,
+            results=results
         )
 
     except Exception as e:
-        import traceback
-        error_detail = f"{str(e)}\n{traceback.format_exc()}"
-        print(f"ERROR in async batch search endpoint: {error_detail}")
-        raise HTTPException(status_code=500, detail=error_detail)
-
-
-@app.get("/search/batch/status/{job_id}", response_model=JobStatusResponse)
-async def get_batch_search_status(job_id: str):
-    """
-    Check status of async batch search job.
-
-    Args:
-        job_id: Job ID returned from /search/batch/async
-
-    Returns:
-        Current job status and result (if completed)
-    """
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-
-    job = jobs[job_id]
-
-    return JobStatusResponse(
-        job_id=job["job_id"],
-        status=job["status"],
-        progress=job.get("progress"),
-        result=job.get("result"),
-        error=job.get("error"),
-        created_at=job.get("created_at"),
-        completed_at=job.get("completed_at")
-    )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")
@@ -432,8 +272,6 @@ async def health_check():
 
         return {
             "status": "healthy",
-            "version": "2.0.0",
-            "async_mode": True,
             "openai_configured": api_configured,
             "dependencies": {
                 "openai": "available",
