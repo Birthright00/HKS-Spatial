@@ -12,7 +12,7 @@ ROOT_DIR = Path(__file__).parent.parent
 ENV_PATH = ROOT_DIR / ".env"
 
 if ENV_PATH.exists():
-    load_dotenv(ENV_PATH)
+    load_dotenv(ENV_PATH, override=True)  # Override system environment variables
 else:
     print(f"Warning: .env file not found at {ENV_PATH}")
 

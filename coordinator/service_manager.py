@@ -13,6 +13,7 @@ import logging
 from enum import Enum
 import signal
 import sys
+import os
 
 from .config import ServiceConfig
 
@@ -103,7 +104,8 @@ class SubmoduleService:
                 cwd=str(self.path),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                env=os.environ.copy()  # Pass environment variables to subprocess
             )
 
             # Wait for service to be ready
