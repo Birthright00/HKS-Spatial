@@ -19,6 +19,10 @@ const conversationSchema = new mongoose.Schema({
   selectedTopics: [String],
   topicConversations: mongoose.Schema.Types.Mixed,
   allMessages: [messageSchema],
+  preferenceSummary: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PreferenceSummary'
+  },
   timestamp: {
     type: Date,
     default: Date.now
