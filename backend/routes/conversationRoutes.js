@@ -95,4 +95,26 @@ router.post('/save', protect, async (req, res) => {
   }
 });
 
+// GET /api/conversations/latest-preference-summary - Get the latest preference summary for a user
+router.get('/latest-preference-summary', protect, async (req, res) => {
+  try {
+    // Find the most recent preference summary for the user
+    const latestSummary = await PreferenceSummary
+      .findOne({ user: req.user._id })
+      .sort({ createdAt: -1 });
+
+    if (!latestSummary) {
+      return res.status(404).json({ message: 'No preference summary found' });
+    }
+
+    // Return only the overall_summary text
+    res.json({
+      summary: latestSummary.overall_summary || ''
+    });
+  } catch (err) {
+    console.error('Error fetching latest preference summary:', err);
+    res.status(500).json({ message: 'Failed to fetch preference summary', error: err.message });
+  }
+});
+
 module.exports = router;
