@@ -33,7 +33,9 @@ app.use(cors({
 }));
 
 // Middleware for parsing JSON bodies
-app.use(express.json());
+// Increased limit to handle base64 images (default is 100kb)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URI, {
@@ -73,6 +75,10 @@ app.use('/api/assessments', assessmentRoutes);
 // RAG Analysis Routes
 const ragAnalysisRoutes = require('./routes/ragAnalysisRoutes');
 app.use('/api/rag-analysis', ragAnalysisRoutes);
+
+// Fix My Home Routes
+const fixMyHomeRoutes = require('./routes/fixMyHomeRoutes');
+app.use('/api/fix-my-home', fixMyHomeRoutes);
 
 // Static uploads
 const uploadsDir = path.join(__dirname, 'uploads');
