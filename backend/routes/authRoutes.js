@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Conversation = require('../models/Conversation');
+const PreferenceSummary = require('../models/PreferenceSummary');
 const jwt = require('jsonwebtoken');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -20,6 +22,55 @@ router.get('/me', protect, async (req, res) => {
     name: req.user.name,
     username: req.user.username,
   });
+});
+
+// @desc    Get user profile data for profile page
+// @route   GET /api/auth/profile
+router.get('/profile', protect, async (req, res) => {
+  try {
+    // Get user data
+    const user = req.user;
+
+    // Get latest conversation to extract topics of interest and symptoms
+    const latestConversation = await Conversation.findOne({ user: req.user._id })
+      .sort({ timestamp: -1 })
+      .select('selectedTopics allMessages');
+
+    // Extract symptoms from questionnaire
+    const symptoms = [];
+    if (latestConversation?.allMessages) {
+      const questionnaireMessage = latestConversation.allMessages.find(
+        msg => msg.type === 'questionnaire' && msg.questionnaire
+      );
+
+      if (questionnaireMessage?.questionnaire?.questions) {
+        const selectedQuestions = questionnaireMessage.questionnaire.questions.filter(q => q.selected);
+        symptoms.push(...selectedQuestions.map(q => q.question));
+      }
+    }
+
+    // Get latest preference summary for design preferences
+    const latestPreferenceSummary = await PreferenceSummary.findOne({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .select('color_and_contrast familiarity_and_identity overall_summary');
+
+    // Build the profile response
+    const profileData = {
+      username: user.username,
+      symptoms: symptoms,
+      topicsOfInterest: latestConversation?.selectedTopics || [],
+      designPreferences: latestPreferenceSummary ? {
+        colorAndContrast: latestPreferenceSummary.color_and_contrast,
+        familiarityAndIdentity: latestPreferenceSummary.familiarity_and_identity,
+        overallSummary: latestPreferenceSummary.overall_summary
+      } : null
+    };
+
+    res.json(profileData);
+  } catch (error) {
+    console.error('Error fetching profile data:', error);
+    res.status(500).json({ message: 'Failed to fetch profile data', error: error.message });
+  }
 });
 
 // The /register route is no longer needed as this logic is merged into /login.
