@@ -250,6 +250,12 @@ class ServiceManager:
     def _initialize_services(self):
         """Initialize service configurations"""
 
+        # Check if Modal services are enabled
+        use_modal_services = os.getenv("USE_MODAL_SERVICES", "false").lower() == "true"
+
+        if use_modal_services:
+            logger.info("USE_MODAL_SERVICES=true: Skipping image_gen and detection services (using Modal)")
+
         # RAG-Langchain service (uses .venv)
         self.services["rag"] = SubmoduleService(
             name="RAG-Langchain",
@@ -261,18 +267,19 @@ class ServiceManager:
         )
 
         # Picture Generation Service (uses myenv)
-        # Uses asyncio subprocess internally to avoid threading deadlocks
-        self.services["image_gen"] = SubmoduleService(
-            name="Picture-Generation",
-            path=ServiceConfig.IMAGE_GEN_PATH,
-            script="image_server.py",
-            host=ServiceConfig.IMAGE_GEN_SERVICE_HOST,
-            port=ServiceConfig.IMAGE_GEN_SERVICE_PORT,
-            venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
-        )
+        # Skipped when USE_MODAL_SERVICES=true
+        if not use_modal_services:
+            self.services["image_gen"] = SubmoduleService(
+                name="Picture-Generation",
+                path=ServiceConfig.IMAGE_GEN_PATH,
+                script="image_server.py",
+                host=ServiceConfig.IMAGE_GEN_SERVICE_HOST,
+                port=ServiceConfig.IMAGE_GEN_SERVICE_PORT,
+                venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
+            )
 
         # Verbose Service - Speech-to-Text and Text-to-Speech (uses myenv)
-        # Isolated from image processing to prevent event loop conflicts
+        # Always started (WebSocket-based, not replaced by Modal)
         self.services["verbose"] = SubmoduleService(
             name="Verbose-Service",
             path=ServiceConfig.IMAGE_GEN_PATH,
@@ -283,15 +290,16 @@ class ServiceManager:
         )
 
         # Detection Service - Florence-2 Object Detection (uses myenv)
-        # Provides spatial coordinate identification for analysis recommendations
-        self.services["detection"] = SubmoduleService(
-            name="Detection-Service",
-            path=ServiceConfig.IMAGE_GEN_PATH,
-            script="detection_server.py",
-            host=ServiceConfig.DETECTION_SERVICE_HOST,
-            port=ServiceConfig.DETECTION_SERVICE_PORT,
-            venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
-        )
+        # Skipped when USE_MODAL_SERVICES=true
+        if not use_modal_services:
+            self.services["detection"] = SubmoduleService(
+                name="Detection-Service",
+                path=ServiceConfig.IMAGE_GEN_PATH,
+                script="detection_server.py",
+                host=ServiceConfig.DETECTION_SERVICE_HOST,
+                port=ServiceConfig.DETECTION_SERVICE_PORT,
+                venv_path=ServiceConfig.IMAGE_GEN_PATH / "myenv"
+            )
 
         # Product Search Service - DuckDuckGo-based intelligent product search (uses root venv)
         # Provides LLM-powered product search with query refinement and seller verification
