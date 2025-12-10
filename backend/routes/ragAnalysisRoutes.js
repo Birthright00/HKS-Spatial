@@ -37,8 +37,20 @@ router.post('/analyze-with-context', protect, upload.single('image'), async (req
       .sort({ createdAt: -1 })
       .limit(1);
 
+    // Fetch user's most recent preference summary (from conversation with completed summarization)
+    const latestConversationWithPreferences = await Conversation.findOne({
+      user: req.user._id,
+      preferenceSummary: { $exists: true, $ne: null }
+    })
+      .sort({ timestamp: -1 })
+      .populate('preferenceSummary')
+      .select('preferenceSummary');
+
+    const preferenceSummary = latestConversationWithPreferences?.preferenceSummary;
+
     console.log('[RAG Analysis] Found conversation:', conversation ? 'Yes' : 'No');
     console.log('[RAG Analysis] Found assessment:', assessment ? 'Yes' : 'No');
+    console.log('[RAG Analysis] Found preference summary:', preferenceSummary ? 'Yes' : 'No');
 
     // Prepare form data for RAG service
     const formData = new FormData();
@@ -67,6 +79,12 @@ router.post('/analyze-with-context', protect, upload.single('image'), async (req
         noChangeComments: assessment.noChangeComments
       };
       console.log('[RAG Analysis] Including assessment issues:', assessment.selectedIssues.join(', '));
+    }
+
+    // Add preference summary if available
+    if (preferenceSummary && preferenceSummary.overall_summary) {
+      userContext.preferenceSummary = preferenceSummary.overall_summary;
+      console.log('[RAG Analysis] Including preference summary');
     }
 
     // Add user context as JSON string if we have any data
@@ -108,7 +126,7 @@ router.post('/analyze-with-context', protect, upload.single('image'), async (req
 /**
  * GET /api/rag-analysis/user-context
  *
- * Fetch user's current conversation and assessment context
+ * Fetch user's current conversation, assessment context, and preference summary
  * Useful for debugging or previewing what context will be sent to RAG
  */
 router.get('/user-context', protect, async (req, res) => {
@@ -121,6 +139,16 @@ router.get('/user-context', protect, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(1);
 
+    const latestConversationWithPreferences = await Conversation.findOne({
+      user: req.user._id,
+      preferenceSummary: { $exists: true, $ne: null }
+    })
+      .sort({ timestamp: -1 })
+      .populate('preferenceSummary')
+      .select('preferenceSummary');
+
+    const preferenceSummary = latestConversationWithPreferences?.preferenceSummary;
+
     return res.json({
       conversation: conversation ? {
         selectedTopics: conversation.selectedTopics,
@@ -132,6 +160,12 @@ router.get('/user-context', protect, async (req, res) => {
         comments: assessment.comments,
         noChangeComments: assessment.noChangeComments,
         createdAt: assessment.createdAt
+      } : null,
+      preferenceSummary: preferenceSummary ? {
+        overall_summary: preferenceSummary.overall_summary,
+        color_and_contrast: preferenceSummary.color_and_contrast,
+        familiarity_and_identity: preferenceSummary.familiarity_and_identity,
+        createdAt: preferenceSummary.createdAt
       } : null
     });
   } catch (error) {

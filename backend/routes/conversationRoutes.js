@@ -98,18 +98,22 @@ router.post('/save', protect, async (req, res) => {
 // GET /api/conversations/latest-preference-summary - Get the latest preference summary for a user
 router.get('/latest-preference-summary', protect, async (req, res) => {
   try {
-    // Find the most recent preference summary for the user
-    const latestSummary = await PreferenceSummary
-      .findOne({ user: req.user._id })
-      .sort({ createdAt: -1 });
+    // Find the most recent conversation that has a completed preference summary
+    const latestConversationWithPreferences = await Conversation.findOne({
+      user: req.user._id,
+      preferenceSummary: { $exists: true, $ne: null }
+    })
+      .sort({ timestamp: -1 })
+      .populate('preferenceSummary')
+      .select('preferenceSummary');
 
-    if (!latestSummary) {
+    if (!latestConversationWithPreferences || !latestConversationWithPreferences.preferenceSummary) {
       return res.status(404).json({ message: 'No preference summary found' });
     }
 
     // Return only the overall_summary text
     res.json({
-      summary: latestSummary.overall_summary || ''
+      summary: latestConversationWithPreferences.preferenceSummary.overall_summary || ''
     });
   } catch (err) {
     console.error('Error fetching latest preference summary:', err);

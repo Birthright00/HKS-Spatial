@@ -50,9 +50,16 @@ router.get('/profile', protect, async (req, res) => {
     }
 
     // Get latest preference summary for design preferences
-    const latestPreferenceSummary = await PreferenceSummary.findOne({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .select('color_and_contrast familiarity_and_identity overall_summary');
+    // Only get preferences from conversations that have completed summarization
+    const latestConversationWithPreferences = await Conversation.findOne({
+      user: req.user._id,
+      preferenceSummary: { $exists: true, $ne: null }
+    })
+      .sort({ timestamp: -1 })
+      .populate('preferenceSummary')
+      .select('preferenceSummary');
+
+    const latestPreferenceSummary = latestConversationWithPreferences?.preferenceSummary;
 
     // Build the profile response
     const profileData = {
