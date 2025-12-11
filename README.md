@@ -44,7 +44,7 @@ HKS-Spatial/
 ├── package.json                  # Root package.json (monorepo)
 ├── setup.bat                     # Windows setup script
 ├── setup.sh                      # Unix/Mac setup script
-└── analyze_and_transform_image.py # Main workflow script
+└── analyze_and_transform_image.py # Image Transform testing script
 ```
 
 ## Setup
@@ -150,6 +150,41 @@ BACKEND_HOST=0.0.0.0
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 JWT_SECRET=jwt_secret_key
 ```
+
+## Ngrok Tunneling Setup (Optional)
+
+For remote access to your local development environment (e.g., testing on mobile devices over the internet), you can use ngrok to create a secure tunnel.
+
+### Prerequisites
+
+1. Install ngrok from [ngrok.com](https://ngrok.com/download)
+2. Sign up for a free ngrok account and get your auth token
+
+### Setup Steps
+
+1. **Authenticate ngrok** (one-time setup):
+   ```bash
+   ngrok authtoken YOUR_AUTH_TOKEN
+   ```
+
+2. **Start ngrok tunnel** to expose your frontend:
+   ```bash
+   ngrok http 5173
+   ```
+
+   This will provide a public URL like: `https://abc123.ngrok-free.app`
+
+3. **Access your application**:
+   - The ngrok URL will tunnel to your local Vite dev server (port 5173)
+   - Share the ngrok URL to access from any device
+   - The Vite config is already set up to allow ngrok hosts (see `vite.config.ts`)
+
+### Notes
+
+- The frontend Vite configuration already includes ngrok in `allowedHosts`
+- Free ngrok accounts have session limits and may show a warning page
+- Those limits may cause the image generation service to stall or lag 
+- For production deployments, consider using a proper hosting service
 
 ## Updates
 
