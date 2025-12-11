@@ -105,7 +105,6 @@ npm run install-backend        # Backend only
 npm run install-frontend       # Frontend only
 ```
 
-Configure backend environment variables in `backend/old.env` if needed.
 
 ### 4. Configure API Keys
 
@@ -149,7 +148,7 @@ DATABASE_NAME=spatial_design_studio
 PORT=8000
 BACKEND_HOST=0.0.0.0
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-JWT_SECRET=your_super_secret_key_that_is_long_and_random
+JWT_SECRET=jwt_secret_key
 ```
 
 ## Updates
