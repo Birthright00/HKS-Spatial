@@ -141,9 +141,6 @@ To Setup MongoDB:
 
 6. Create Environment Variables (As seen below.)
 
-7. Install dependencies
-   npm install mongoose dotenv multer
-
 If using the Node.js backend server, configure MongoDB settings in the same root `.env` file:
 
 ```env
