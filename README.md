@@ -83,30 +83,7 @@ pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 --extra-index-url https
 ```
 The code automatically uses GPU if available at runtime.
 
-### 3. Install Node.js Dependencies
-
-**Prerequisites**: Ensure Node.js and npm are installed on your system. Download from [nodejs.org](https://nodejs.org/).
-
-Install all Node.js dependencies (root, backend, and frontend) with a single command:
-
-```bash
-npm run install-all
-```
-
-This will:
-- Install root dependencies (concurrently, axios)
-- Install backend dependencies (Express, MongoDB, etc.)
-- Install frontend dependencies (React 19, Vite, TypeScript, Tailwind CSS, React Router)
-
-**Alternative**: Install only specific parts:
-```bash
-npm install                    # Root only
-npm run install-backend        # Backend only
-npm run install-frontend       # Frontend only
-```
-
-
-### 4. Configure API Keys
+### 3. Configure API Keys
 
 The project uses multiple API keys for different services. You'll need to configure them in the appropriate environment files:
 
@@ -119,7 +96,7 @@ Edit `.env` in the root directory and add your API keys:
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Anthropic API (optional, for Claude models in RAG)
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+VITE_OPENROUTER_API_KEY=your_vite_api_key_here
 
 # Nanobanana API (used by picture-generation-verbose-api-module)
 NANOBANANA_API_KEY=your_nanobanana_api_key_here
@@ -131,7 +108,8 @@ ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 Required API keys:
 - **OPENAI_API_KEY**: For RAG analysis using OpenAI's Vision API
 - **NANOBANANA_API_KEY**: For image transformation/editing
-- **ELEVENLABS_API_KEY**: For text-to-speech features (optional)
+- **ELEVENLABS_API_KEY**: For text-to-speech features
+- **VITE_OPENROUTER_API_KEY**: For Memory Bot Features 
 
 #### MongoDB Configuration (Backend)
 
@@ -188,8 +166,11 @@ For remote access to your local development environment (e.g., testing on mobile
 
 ## Updates
 
-To update the code in the submodules recursively:
+To update the code in the submodules recursively (only if code is updated):
 
+1. Change code source in source control to main/master
+
+2. Run this command
 ```bash
 git submodule update --recursive
 ```
@@ -205,21 +186,8 @@ npm run dev
 ```
 
 This will start:
-- **Frontend** at `http://localhost:5173` (React/Vite dev server)
-- **Backend** at `http://localhost:3000` (Express server)
-
-**Run separately**:
-```bash
-npm run frontend    # Frontend only
-npm run backend     # Backend only
-```
-
-**Build frontend for production**:
-```bash
-cd Spatial-Design-Studio-Frontend/frontend
-npm run build
-cd ../..
-```
+- **Frontend** Frontend Server
+- **Backend**  Backend Server
 
 ### Running Python Services
 
