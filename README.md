@@ -6,29 +6,45 @@ Image analysis and transformation system for dementia-friendly home design using
 
 ```
 HKS-Spatial/
-├── .env                          # Environment variables (API keys)
-├── .env.example                  # Template for .env
-├── requirements.txt              # Coordinator dependencies
-├── setup.bat                     # Windows setup script
-├── setup.sh                      # Unix/Mac setup script
-├── analyze_and_transform_image.py # Main workflow script
+├── backend/                      # Node.js/Express backend server
+│   ├── middleware/               # Express middleware
+│   ├── models/                   # Database models
+│   ├── routes/                   # API routes
+│   ├── server.js                 # Main server file
+│   ├── package.json              # Node.js dependencies
+│   └── old.env                   # Backend environment variables
+│
+├── Spatial-Design-Studio-Frontend/  # React frontend application
+│   └── frontend/
+│       ├── src/                  # React source code
+│       ├── public/               # Static assets
+│       ├── package.json          # Frontend dependencies
+│       └── vite.config.ts        # Vite configuration
 │
 ├── coordinator/                  # Service management
 │   ├── config.py                 # Configuration
 │   ├── service_manager.py        # Service lifecycle
 │   └── main.py                   # CLI for manual control
 │
-├── RAG-Langchain/               # Image analysis service
+├── RAG-Langchain/               # Image analysis service (submodule)
 │   ├── .venv/                   # Virtual environment
 │   ├── requirements.txt         # Dependencies
 │   ├── api_server.py            # FastAPI wrapper
 │   └── dementia_pipeline.py     # Core analysis logic
 │
-└── picture-generation-verbose-api-module/  # Image transformation service
-    ├── myenv/                   # Virtual environment
-    ├── requirements.txt         # Dependencies
-    ├── api_server.py            # FastAPI wrapper
-    └── transform_image.py       # Core transformation logic
+├── picture-generation-verbose-api-module/  # Image transformation service (submodule)
+│   ├── myenv/                   # Virtual environment
+│   ├── requirements.txt         # Dependencies
+│   ├── transform_image.py       # Core transformation logic
+│   └── interior-segment-labeler/ # Image segmentation
+│
+├── .env                          # Environment variables (API keys)
+├── .env.example                  # Template for .env
+├── requirements.txt              # Coordinator dependencies
+├── package.json                  # Root package.json (monorepo)
+├── setup.bat                     # Windows setup script
+├── setup.sh                      # Unix/Mac setup script
+└── analyze_and_transform_image.py # Main workflow script
 ```
 
 ## Setup
@@ -54,8 +70,10 @@ chmod +x setup.sh
 
 This will:
 - Create virtual environments for coordinator and both submodules
-- Install all dependencies (CPU version of PyTorch by default)
+- Install all Python dependencies (CPU version of PyTorch by default)
 - Create `.env` file from template
+
+**Note**: The setup script currently handles Python backend services only. Frontend setup is separate (see step 3 below).
 
 **Note on GPU Support**: The setup installs CPU-only PyTorch by default for maximum compatibility. For GPU acceleration, manually install the CUDA version after setup:
 ```bash
@@ -65,15 +83,52 @@ pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 --extra-index-url https
 ```
 The code automatically uses GPU if available at runtime.
 
-### 3. Configure API Keys
+### 3. Install Node.js Dependencies
 
-Edit `.env` and add your API keys:
+**Prerequisites**: Ensure Node.js and npm are installed on your system. Download from [nodejs.org](https://nodejs.org/).
+
+Install all Node.js dependencies (root, backend, and frontend) with a single command:
+
+```bash
+npm run install-all
+```
+
+This will:
+- Install root dependencies (concurrently, axios)
+- Install backend dependencies (Express, MongoDB, etc.)
+- Install frontend dependencies (React 19, Vite, TypeScript, Tailwind CSS, React Router)
+
+**Alternative**: Install only specific parts:
+```bash
+npm install                    # Root only
+npm run install-backend        # Backend only
+npm run install-frontend       # Frontend only
+```
+
+Configure backend environment variables in `backend/old.env` if needed.
+
+### 4. Configure API Keys
+
+The project uses multiple API keys for different services. You'll need to configure them in the appropriate environment files:
+
+#### Python Services (`.env` in root directory)
+
+Edit `.env` in the root directory and add your API keys:
 
 ```env
 OPENAI_API_KEY=your_openai_key_here
 NANOBANANA_API_KEY=your_nanobanana_key_here
 ELEVENLABS_API_KEY=your_elevenlabs_key_here
 ```
+
+Required API keys:
+- **OPENAI_API_KEY**: For RAG analysis using OpenAI's Vision API
+- **NANOBANANA_API_KEY**: For image transformation/editing
+- **ELEVENLABS_API_KEY**: For text-to-speech features (optional)
+
+#### Backend Server (Optional)
+
+If using the Node.js backend, configure `backend/old.env` with your database and service URLs.
 
 ## Updates
 
@@ -85,9 +140,70 @@ git submodule update --recursive
 
 ## Usage
 
-### Complete Workflow (Recommended)
+### Running the Web Application (Frontend + Backend)
 
-Analyze and transform an image in one command:
+**Run both frontend and backend together** (recommended):
+
+```bash
+npm run dev
+```
+
+This will start:
+- **Frontend** at `http://localhost:5173` (React/Vite dev server)
+- **Backend** at `http://localhost:3000` (Express server)
+
+**Run separately**:
+```bash
+npm run frontend    # Frontend only
+npm run backend     # Backend only
+```
+
+**Build frontend for production**:
+```bash
+cd Spatial-Design-Studio-Frontend/frontend
+npm run build
+cd ../..
+```
+
+### Running Python Services
+
+The project includes Python-based microservices. Activate the Python virtual environment first:
+
+**Windows**:
+```bash
+venv\Scripts\activate
+```
+
+**Unix/Mac**:
+```bash
+source venv/bin/activate
+```
+
+#### Service Control
+
+**Start all Python services**:
+```bash
+python -m coordinator.main start
+```
+
+**Check status**:
+```bash
+python -m coordinator.main status
+```
+
+**Stop services**:
+```bash
+python -m coordinator.main stop
+```
+
+**Restart services**:
+```bash
+python -m coordinator.main restart
+```
+
+### Image Analysis Workflow (Python Services)
+
+Analyze and transform an image using the Python microservices:
 
 ```bash
 # Windows
@@ -117,43 +233,9 @@ python analyze_and_transform_image.py room.jpg --keep-services
    - `{image}_transformed_{timestamp}.jpg` - Transformed image
 5. Stops services automatically
 
-### Manual Service Control (Advanced)
-
-You need to activate the coordinator virtual environment first:
-
-**Windows**:
-```bash
-venv\Scripts\activate
-```
-
-**Unix/Mac**:
-```bash
-source venv/bin/activate
-```
-
-Then use these commands:
-
-**Start services**:
-```bash
-python -m coordinator.main start
-```
-
-**Check status**:
-```bash
-python -m coordinator.main status
-```
-
-**Stop services**:
-```bash
-python -m coordinator.main stop
-```
-
-**Restart services**:
-```bash
-python -m coordinator.main restart
-```
-
 ### API Endpoints
+
+Python microservices:
 
 Once services are running, you can call them directly:
 
