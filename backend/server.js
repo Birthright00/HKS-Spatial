@@ -6,8 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
-// Load environment variables from .env file
-dotenv.config();
+// Load environment variables from root .env file
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 
@@ -19,7 +19,7 @@ app.use((req, res, next) => {
 
 // Environment variables
 const PORT = process.env.PORT || 8000;
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.BACKEND_HOST || '0.0.0.0';
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // CORS configuration

@@ -14,21 +14,21 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [1/5] Creating coordinator virtual environment...
+echo [1/6] Creating coordinator virtual environment...
 py -3.13 -m venv venv
 if %errorlevel% neq 0 (
     echo Error: Failed to create coordinator venv
     exit /b 1
 )
 
-echo [2/5] Installing coordinator dependencies...
+echo [2/6] Installing coordinator dependencies...
 call venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 call deactivate
 
 echo.
-echo [3/5] Setting up RAG-Langchain submodule...
+echo [3/6] Setting up RAG-Langchain submodule...
 cd RAG-Langchain
 if exist .venv (
     echo RAG-Langchain .venv already exists, skipping...
@@ -42,7 +42,7 @@ if exist .venv (
 cd ..
 
 echo.
-echo [4/5] Setting up picture-generation submodule...
+echo [4/6] Setting up picture-generation submodule...
 cd picture-generation-verbose-api-module
 if exist myenv (
     echo picture-generation myenv already exists, skipping...

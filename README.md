@@ -116,9 +116,17 @@ The project uses multiple API keys for different services. You'll need to config
 Edit `.env` in the root directory and add your API keys:
 
 ```env
-OPENAI_API_KEY=your_openai_key_here
-NANOBANANA_API_KEY=your_nanobanana_key_here
-ELEVENLABS_API_KEY=your_elevenlabs_key_here
+# OpenAI API (used by RAG-Langchain)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Anthropic API (optional, for Claude models in RAG)
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Nanobanana API (used by picture-generation-verbose-api-module)
+NANOBANANA_API_KEY=your_nanobanana_api_key_here
+
+# ElevenLabs API (optional, for text-to-speech)
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 ```
 
 Required API keys:
@@ -126,9 +134,23 @@ Required API keys:
 - **NANOBANANA_API_KEY**: For image transformation/editing
 - **ELEVENLABS_API_KEY**: For text-to-speech features (optional)
 
-#### Backend Server (Optional)
+#### MongoDB Configuration (Backend)
 
-If using the Node.js backend, configure `backend/old.env` with your database and service URLs.
+If using the Node.js backend server, configure MongoDB settings in the same root `.env` file:
+
+```env
+# MongoDB Configuration
+MONGODB_USERNAME=your_mongodb_username
+MONGODB_PASSWORD=your_mongodb_password
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database_name
+DATABASE_NAME=spatial_design_studio
+
+# Backend Server Configuration
+PORT=8000
+BACKEND_HOST=0.0.0.0
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+JWT_SECRET=your_super_secret_key_that_is_long_and_random
+```
 
 ## Updates
 
