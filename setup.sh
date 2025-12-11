@@ -15,12 +15,6 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# Check if Node.js is available
-if ! command -v node &> /dev/null; then
-    echo "Error: Node.js not found. Please install Node.js (https://nodejs.org/)."
-    exit 1
-fi
-
 echo "[1/6] Creating coordinator virtual environment..."
 python3.13 -m venv venv
 
@@ -79,8 +73,7 @@ echo "===================================="
 echo
 echo "Next steps:"
 echo "1. Edit .env file and add your API keys"
-echo "2. Start backend services: source venv/bin/activate && python -m coordinator.main start"
-echo "3. Start frontend: cd Spatial-Design-Studio-Frontend/frontend && npm run dev"
+echo "2. Start services: source venv/bin/activate && python -m coordinator.main start"
 echo
 echo "For help: python -m coordinator.main --help"
 echo
