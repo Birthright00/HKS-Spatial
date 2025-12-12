@@ -113,7 +113,35 @@ Required API keys:
 - **ELEVENLABS_API_KEY**: For text-to-speech features
 - **VITE_OPENROUTER_API_KEY**: For Memory Bot Features 
 
-#### MongoDB Configuration (Backend)
+#### MongoDB Setup & Configuration (Backend)
+
+To Setup MongoDB: 
+1. Create Account at https://www.mongodb.com/cloud/atlas/register
+
+2. Create a cluster. 
+   - Choose Shared Free Tier. 
+   - Choose a region (e.g., Singapore AWS ap-southeast-1). 
+   - Name your cluster (e.g., Dementia-Cluster)
+
+3. Creating a Database User.
+   - Go to Database Access -> Add New Database User
+   - Choose a username and password
+   - Set Role -> Read and write to any database
+   - Save the user
+
+4. Configure network access.
+   - In Network Access, click on Add IP Address
+   - Select option of: Allow Access From Anywhere (0.0.0.0/0) -> This is solely for development
+   - Change it once going to production.
+
+5. Get connection string to put into .env
+   - Database -> Connect -> Drivers
+   - Select Node.js
+   - Copy generated URL, which should look like the follow:
+   mongodb+srv://<username>:<password>@<cluster-id>.mongodb.net/<database>
+   (Replace placeholders with actual credentials)
+
+6. Create Environment Variables (As seen below.)
 
 If using the Node.js backend server, configure MongoDB settings in the same root `.env` file:
 
