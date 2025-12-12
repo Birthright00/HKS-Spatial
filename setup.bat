@@ -10,12 +10,12 @@ echo.
 REM Check if Python is available
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Error: Python not found. Please install Python 3.13.
+    echo Error: Python not found. Please install Python 3.12.
     exit /b 1
 )
 
 echo [1/6] Creating coordinator virtual environment...
-py -3.13 -m venv venv
+py -3.12 -m venv venv
 if %errorlevel% neq 0 (
     echo Error: Failed to create coordinator venv
     exit /b 1
@@ -33,7 +33,7 @@ cd RAG-Langchain
 if exist .venv (
     echo RAG-Langchain .venv already exists, skipping...
 ) else (
-    py -3.13 -m venv .venv
+    py -3.12 -m venv .venv
     call .venv\Scripts\activate.bat
     python -m pip install --upgrade pip
     pip install -r requirements.txt
@@ -48,7 +48,7 @@ if exist myenv (
     echo picture-generation myenv already exists, skipping...
 ) else (
     setlocal enabledelayedexpansion
-    py -3.13 -m venv myenv
+    py -3.12 -m venv myenv
     call myenv\Scripts\activate.bat
     python -m pip install --upgrade pip
     pip install -r requirements.txt

@@ -11,12 +11,12 @@ echo
 
 # Check if Python is available
 if ! command -v python3 &> /dev/null; then
-    echo "Error: Python 3 not found. Please install Python 3.13."
+    echo "Error: Python 3 not found. Please install Python 3.12."
     exit 1
 fi
 
 echo "[1/6] Creating coordinator virtual environment..."
-python3.13 -m venv venv
+python3.12 -m venv venv
 
 echo "[2/6] Installing coordinator dependencies..."
 source venv/bin/activate
@@ -30,7 +30,7 @@ cd RAG-Langchain
 if [ -d ".venv" ]; then
     echo "RAG-Langchain .venv already exists, skipping..."
 else
-    python3.13 -m venv .venv
+    python3.12 -m venv .venv
     source .venv/bin/activate
     python -m pip install --upgrade pip
     pip install -r requirements.txt
@@ -44,7 +44,7 @@ cd picture-generation-verbose-api-module
 if [ -d "myenv" ]; then
     echo "picture-generation myenv already exists, skipping..."
 else
-    python3.13 -m venv myenv
+    python3.12 -m venv myenv
     source myenv/bin/activate
     python -m pip install --upgrade pip
     pip install -r requirements.txt

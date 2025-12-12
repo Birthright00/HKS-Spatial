@@ -49,6 +49,8 @@ HKS-Spatial/
 
 ## Setup
 
+## Note: Please Install Python 3.12 before running the setup process https://www.python.org/downloads/release/python-3120/
+
 ### 1. Clone the repositary with submodules
 
 ```bash
