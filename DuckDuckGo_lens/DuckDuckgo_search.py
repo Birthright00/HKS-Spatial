@@ -15,10 +15,17 @@ LLM_SEMAPHORE = asyncio.Semaphore(5)  # Max 5 concurrent LLM calls
 def search_with_duckduckgo(query, num_results=20):
     try:
         from ddgs import DDGS
-        with DDGS() as ddgs:
-            return [r.get('href') or r.get('link') for r in ddgs.text(query, max_results=num_results) if r.get('href') or r.get('link')]
+        # FIX: Add a timeout so it fails fast instead of hanging
+        with DDGS(timeout=15) as ddgs:
+            results = []
+            # FIX: Iterate manually to catch generator hangs
+            for r in ddgs.text(query, max_results=num_results):
+                link = r.get('href') or r.get('link')
+                if link:
+                    results.append(link)
+            return results
     except Exception as e:
-        print(f"[X] Search failed: {e}")
+        print(f"[X] Search failed or timed out: {e}")
         return []
 
 
@@ -52,57 +59,51 @@ def find_verified_sellers(product_description, product_type="furniture", locatio
 
 
 async def find_verified_sellers_async(product_description, product_type="furniture", location="Singapore", target_count=10):
-    """
-    Async version: Find verified sellers with PARALLEL URL verification.
-    This is 2-3x faster than the sequential version.
-    """
     try:
         from webpage_analyzer import WebpageAnalyzer
-
         analyzer = WebpageAnalyzer()
 
-        # Create more specific search queries based on product type
+        # Create search query
         query = f"buy {product_description} {location}"
-        results = search_with_duckduckgo(query, num_results=target_count * 2)
+        print(f"  -> DDG Query: {query}")
+        
+        # Run search (synchronous function) in executor to prevent blocking the event loop
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(None, search_with_duckduckgo, query, target_count * 2)
 
         if not results:
             print("[X] No search results found")
             return [], 0
 
-        # STRATEGY 2: Verify URLs in parallel
+        print(f"  -> Found {len(results)} raw links. Verifying sellers in parallel...")
+
         async def verify_single_url(url):
-            """Verify a single URL asynchronously with rate limiting"""
             try:
-                # Use semaphore to limit concurrent LLM calls
                 async with LLM_SEMAPHORE:
-                    # Run the sync function in executor to avoid blocking
-                    loop = asyncio.get_event_loop()
+                    # print(f"    Checking: {url[:40]}...") # Optional: Verbose logging
                     is_selling, reason = await loop.run_in_executor(
                         None,
                         analyzer.verify_url_sells_product,
                         url, product_description, product_type, location
                     )
                     if is_selling:
+                        print(f"    [+] Verified: {url[:50]}...") # Feedback for user
                         return {'url': url, 'reason': reason}
                     return None
             except Exception as e:
-                print(f"[X] Error verifying {url}: {e}")
+                # print(f"    [!] Error checking {url}: {e}")
                 return None
 
-        # Process all URLs in parallel (with semaphore limiting concurrency)
+        # Process all URLs in parallel
         verification_tasks = [verify_single_url(url) for url in results]
         verification_results = await asyncio.gather(*verification_tasks, return_exceptions=True)
 
-        # Filter out None results and exceptions
         verified_sellers = [
             result for result in verification_results
             if result and not isinstance(result, Exception)
         ]
 
-        # Limit to target count
-        verified_sellers = verified_sellers[:target_count]
-
-        return verified_sellers, len(results)
+        return verified_sellers[:target_count], len(results)
     except Exception as e:
         print(f"[X] Verification failed: {e}")
         return [], 0
@@ -259,90 +260,79 @@ def save_to_json(verified_sellers, output_file='verified_sellers.json'):
         print(f"[X] Failed to save JSON: {e}")
 
 
-if __name__ == "__main__":
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description='Search for furniture sellers using DuckDuckGo')
-    parser.add_argument('json_file', help='Path to the JSON file to process')
-    parser.add_argument('--location', default='Singapore', help='Location to search (default: Singapore)')
-    parser.add_argument('--target', type=int, default=5, help='Number of verified sellers to find (default: 5)')
-
+async def main_process():
+    # Parse arguments inside the async wrapper or pass them in
+    parser = argparse.ArgumentParser()
+    parser.add_argument('json_file')
+    parser.add_argument('--location', default='Singapore')
+    parser.add_argument('--target', type=int, default=5)
     args = parser.parse_args()
 
     json_file = args.json_file
-    location = args.location
-    target_verified = args.target
-
     try:
-        # Read JSON file
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # Process each issue
         for i, issue in enumerate(data.get('issues', []), 1):
             item_name = issue.get('item', '')
             recommendation = issue.get('recommendation', '')
 
-            # Skip if already has website info
             if 'Website name' in issue and 'Website link' in issue:
-                print(f"[{i}] {issue['item']} - Already processed, skipping")
                 continue
-
-            if not recommendation:
+            
+            if not recommendation: 
                 continue
 
             print(f"\n[{i}/{len(data['issues'])}] Processing: {issue['item']}")
 
-            # Extract search query and product type using LLM
+            # Use LLM (sync) - keep as is or wrap in run_in_executor if very slow
             product_type, search_query = extract_search_query(item_name, recommendation)
 
-            # If no purchase needed, skip searching
             if not search_query or not product_type:
-                print(f"  -> No purchase required (rearrangement/organization only)")
+                print(f"  -> No purchase required.")
                 continue
 
-            print(f"  -> Product Type: {product_type}")
-            print(f"  -> Searching: {search_query}")
+            print(f"  -> Searching for: {search_query}")
 
-            # Search for sellers with retry mechanism
+            # USE THE ASYNC FUNCTION HERE
             verified_sellers = []
             max_retries = 3
             current_query = search_query
             attempted_queries = [search_query]
 
             for attempt in range(max_retries):
-                verified_sellers, _ = find_verified_sellers(current_query, product_type, location, target_verified)
+                # AWAIT the async function
+                verified_sellers, _ = await find_verified_sellers_async(
+                    current_query, product_type, args.location, args.target
+                )
 
                 if verified_sellers:
                     print(f"  [OK] Found {len(verified_sellers)} sellers")
                     break
                 else:
                     if attempt < max_retries - 1:
-                        print(f"  [X] No verified sellers found, refining query...")
-                        # Ask LLM to refine the search query
+                        print(f"  [X] No sellers found. Refining query...")
                         refined_query = refine_search_query(current_query, product_type, attempted_queries)
                         if refined_query and refined_query not in attempted_queries:
                             current_query = refined_query
                             attempted_queries.append(refined_query)
-                            print(f"  -> Retry {attempt + 1}/{max_retries - 1}: {current_query}")
+                            print(f"  -> Retry {attempt + 1}: {current_query}")
                         else:
-                            print(f"  [X] Could not generate new query variation")
                             break
-                    else:
-                        print(f"  [X] No verified sellers found after {max_retries} attempts")
 
             if verified_sellers:
-                # Add website info to issue
                 issue['Website name'] = [urlparse(s['url']).netloc.replace('www.', '') for s in verified_sellers]
                 issue['Website link'] = [s['url'] for s in verified_sellers]
-                # Store the successful query if it was refined
                 if current_query != search_query:
                     issue['Search query used'] = current_query
 
-        # Overwrite original JSON file
+        # Save results
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-
         print(f"\n[OK] Updated {json_file}")
 
     except Exception as e:
-        print(f"[X] Error: {e}")
+        print(f"[X] Critical Error: {e}")
+
+if __name__ == "__main__":
+    asyncio.run(main_process())

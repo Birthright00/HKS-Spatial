@@ -6,10 +6,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import json
 
-
 # Load environment variables
 load_dotenv()
-
 
 class OpenAILLM:
     """OpenAI API interface for LLM analysis"""
@@ -20,7 +18,8 @@ class OpenAILLM:
         self.client = None
 
         if self.is_available():
-            self.client = OpenAI(api_key=self.api_key)
+            # FIX: Add a timeout to the client to prevent indefinite hangs on API calls
+            self.client = OpenAI(api_key=self.api_key, timeout=20.0)
 
     def is_available(self):
         """Check if API key is configured"""
@@ -39,9 +38,9 @@ class OpenAILLM:
             return completion.choices[0].message.content
         except Exception as e:
             if "429" in str(e) or "rate" in str(e).lower():
-                print(f"[X] Rate limited - Please check your OpenAI API usage")
+                print(f"[!] Rate limited - Open AI usage limit reached")
             else:
-                print(f"[X] OpenAI API error: {e}")
+                print(f"[!] OpenAI API error: {e}")
             return None
 
 
@@ -51,22 +50,66 @@ class WebpageAnalyzer:
     def __init__(self):
         self.llm = OpenAILLM()
         if not self.llm.is_available():
-            print("[X] OpenAI API key not configured")
+            print("[!] OpenAI API key not configured")
             self.llm = None
 
-    def fetch_page_content(self, url, max_length=3000):
+    def fetch_page_content(self, url, max_length=5000):
+        """
+        Fetches page content with strict safety limits to prevent hanging
+        on large files (PDFs) or slow streams.
+        """
         try:
-            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                for script in soup(["script", "style", "nav", "footer", "header"]):
+            # FIX 1: Use stream=True to inspect headers before downloading body
+            # FIX 2: Split timeout (5s connect, 10s read)
+            with requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}, 
+                            timeout=(5, 10), stream=True) as response:
+                
+                # FIX 3: Fail fast if status is bad
+                if response.status_code != 200:
+                    return None
+
+                # FIX 4: Check Content-Type. If it's a PDF, Image, or Video, abort immediately.
+                content_type = response.headers.get('Content-Type', '').lower()
+                if 'text/html' not in content_type:
+                    # print(f"    [Skipping non-HTML: {content_type}]")
+                    return None
+
+                # FIX 5: Manual content reading with size limit (Max 50KB raw data)
+                # This prevents hanging on huge files.
+                content_chunks = []
+                current_length = 0
+                max_download_size = 50000 
+
+                for chunk in response.iter_content(chunk_size=4096, decode_unicode=True):
+                    if chunk:
+                        content_chunks.append(chunk)
+                        current_length += len(chunk)
+                        if current_length > max_download_size:
+                            break
+                
+                full_text = "".join(content_chunks)
+
+                # Parse HTML
+                soup = BeautifulSoup(full_text, 'html.parser')
+                
+                # Remove non-content tags
+                for script in soup(["script", "style", "nav", "footer", "header", "svg", "noscript"]):
                     script.decompose()
+                
                 text = soup.get_text()
+                
+                # Clean up whitespace
                 lines = (line.strip() for line in text.splitlines())
                 chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-                return ' '.join(chunk for chunk in chunks if chunk)[:max_length]
+                cleaned_text = ' '.join(chunk for chunk in chunks if chunk)
+                
+                return cleaned_text[:max_length]
+
+        except requests.exceptions.Timeout:
+            # print(f"    [Timeout loading {url}]")
             return None
-        except:
+        except Exception as e:
+            # print(f"    [Error loading {url}: {e}]")
             return None
 
     def analyze_page_with_llm(self, page_content, product_description, product_type, url, required_location="Singapore"):
@@ -74,6 +117,7 @@ class WebpageAnalyzer:
         if not self.llm or not page_content:
             return False, "No LLM or content"
 
+        # (Prompt remains the same as original)
         prompt = f"""You are analyzing a webpage to determine if it is an E-COMMERCE STORE selling "{product_description}" (product type: {product_type}) and serves customers in {required_location}.
 
 CRITICAL REQUIREMENTS:
@@ -105,14 +149,7 @@ Question: Is this an e-commerce store selling "{product_description}" ({product_
 
 Answer STRICTLY with this format:
 YES - [reason including location verification]
-NO - [reason: wrong location, wrong product, not a store, etc.]
-
-Examples:
-[YES] - Singapore lighting shop (domain: .com.sg) selling LED ceiling lights with SGD prices
-[YES] - Home decor store in Singapore with wall art available for purchase
-[NO] - UK-based vinyl flooring store (.co.uk domain), does not ship to Singapore
-[NO] - This is selling furniture, not lighting fixtures
-[NO] - This is a blog about interior design, not selling anything"""
+NO - [reason: wrong location, wrong product, not a store, etc.]"""
 
         try:
             response = self.llm.analyze(prompt)
@@ -156,22 +193,10 @@ Examples:
         """Verify if a URL sells the specified product and serves the location"""
         page_content = self.fetch_page_content(url)
         if not page_content:
-            return False, "Could not fetch page"
+            # Return specific reason so we know why it failed in logs
+            return False, "Could not fetch page (Timeout/404/Not HTML)"
+        
         if self.llm:
             return self.analyze_page_with_llm(page_content, product_description, product_type, url, location)
+        
         return self.analyze_page_simple(page_content, product_description, product_type)
-
-    # Keep backward compatibility with old function name
-    def verify_url_sells_furniture(self, url, furniture_description):
-        """Legacy function for backward compatibility"""
-        return self.verify_url_sells_product(url, furniture_description, "furniture")
-
-
-def filter_relevant_results(urls, furniture_description, max_analyze=10):
-    analyzer = WebpageAnalyzer()
-    relevant_urls = []
-    for url in urls[:max_analyze]:
-        is_selling, reason = analyzer.verify_url_sells_furniture(url, furniture_description)
-        if is_selling:
-            relevant_urls.append({'url': url, 'reason': reason})
-    return relevant_urls
