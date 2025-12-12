@@ -67,6 +67,7 @@ class BatchSearchRequest(BaseModel):
     location: str = Field(default="Singapore", description="Location to search for sellers")
     target_sellers: int = Field(default=5, ge=1, le=20, description="Number of verified sellers per item")
     max_retries: int = Field(default=3, ge=1, le=5, description="Maximum query refinement attempts")
+    timeout_seconds: int = Field(default=300, ge=30, le=600, description="Maximum time in seconds (default 300 = 5 minutes)")
 
     class Config:
         json_schema_extra = {
@@ -79,7 +80,8 @@ class BatchSearchRequest(BaseModel):
                 ],
                 "location": "Singapore",
                 "target_sellers": 5,
-                "max_retries": 3
+                "max_retries": 3,
+                "timeout_seconds": 300
             }
         }
 
@@ -88,6 +90,8 @@ class BatchSearchResponse(BaseModel):
     total_issues: int
     processed: int
     results: List[Dict[str, Any]]
+    timed_out: bool = False
+    timeout_message: Optional[str] = None
 
 
 # API Endpoints
@@ -261,29 +265,77 @@ async def batch_search_products(request: BatchSearchRequest):
 
             return issue
 
-        # STRATEGY 1: Process all issues in parallel
-        print(f"[Batch Search] Processing {len(request.issues)} issues in parallel...")
-        tasks = [process_single_issue(issue.copy()) for issue in request.issues]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # STRATEGY 1: Process all issues in parallel with timeout
+        print(f"[Batch Search] Processing {len(request.issues)} issues in parallel (timeout: {request.timeout_seconds}s)...")
 
-        # Handle any exceptions
-        final_results = []
-        processed_count = 0
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                print(f"[Error] Issue {i} failed: {result}")
-                final_results.append(request.issues[i])  # Return original issue on error
-            else:
-                final_results.append(result)
-                if 'Website name' in result and 'Website link' in result:
-                    processed_count += 1
+        # Create tasks for all issues
+        tasks = [process_single_issue(issue.copy()) for issue in request.issues]
+
+        # Track completed tasks and partial results
+        completed_results = [None] * len(tasks)
+        pending_tasks = {asyncio.create_task(task): i for i, task in enumerate(tasks)}
+
+        timed_out = False
+        timeout_message = None
+
+        try:
+            # Wait for all tasks with timeout
+            done, pending = await asyncio.wait(
+                pending_tasks.keys(),
+                timeout=request.timeout_seconds,
+                return_when=asyncio.ALL_COMPLETED
+            )
+
+            # Process completed tasks
+            for task in done:
+                task_index = pending_tasks[task]
+                try:
+                    result = await task
+                    completed_results[task_index] = result
+                except Exception as e:
+                    print(f"[Error] Issue {task_index} failed: {e}")
+                    completed_results[task_index] = request.issues[task_index]
+
+            # Handle timeout - cancel pending tasks and use partial results
+            if pending:
+                timed_out = True
+                completed_count = len(done)
+                timeout_message = f"Search timed out after {request.timeout_seconds}s. Completed {completed_count}/{len(tasks)} items. Returning partial results."
+                print(f"[Batch Search] {timeout_message}")
+
+                # Cancel pending tasks
+                for task in pending:
+                    task.cancel()
+                    task_index = pending_tasks[task]
+                    # Return original issue for incomplete tasks
+                    completed_results[task_index] = request.issues[task_index]
+
+                # Wait for cancellation to complete
+                await asyncio.gather(*pending, return_exceptions=True)
+
+        except asyncio.TimeoutError:
+            # Fallback timeout handling
+            timed_out = True
+            timeout_message = f"Search timed out after {request.timeout_seconds}s. Returning partial results."
+            print(f"[Batch Search] {timeout_message}")
+
+            # Fill in any None results with original issues
+            for i, result in enumerate(completed_results):
+                if result is None:
+                    completed_results[i] = request.issues[i]
+
+        # Count successfully processed items
+        final_results = completed_results
+        processed_count = sum(1 for result in final_results if 'Website name' in result and 'Website link' in result)
 
         print(f"[Batch Search] Completed: {processed_count}/{len(request.issues)} issues found sellers")
 
         return BatchSearchResponse(
             total_issues=len(request.issues),
             processed=processed_count,
-            results=final_results
+            results=final_results,
+            timed_out=timed_out,
+            timeout_message=timeout_message
         )
 
     except Exception as e:
