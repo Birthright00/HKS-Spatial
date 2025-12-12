@@ -49,7 +49,9 @@ HKS-Spatial/
 
 ## Setup
 
-## Note: Please Install Python 3.12 before running the setup process https://www.python.org/downloads/release/python-3120/
+### Note: Please Install Python 3.12 before running the setup process 
+
+https://www.python.org/downloads/release/python-3120/
 
 ### 1. Clone the repositary with submodules
 
@@ -260,11 +262,11 @@ python -m coordinator.main restart
 python -m coordinator.main start --exclude {Service name} # verbose, product_search, rag, detection, image_gen
 ```
 
-### Known issues with services that could not be resolved
+## Known issues with services that could not be resolved
 
 Due to external circumstances, there are some issues that could not be resolved during the prototyping process
 
-#### WebSocket issues in Memory Bot interface
+### WebSocket issues in Memory Bot interface
 
 Sometimes, when running the application and entering the Memory Bot interface for the first time, a WebSocket connection error would occur, resulting in no voice-over playing.
 
@@ -272,7 +274,7 @@ Sometimes, when running the application and entering the Memory Bot interface fo
 
 Exit the Memory Bot interface and enter the interface again. The WebSocket connection should be established and the voice-over should play again.
 
-#### DuckDuckGo search API issues
+### DuckDuckGo search API issues
 
 Sometimes, the DuckDuckGo Search API may experience issues with returning search responses, resulting in the Product Search feature not returning results consistently. At the time of development, the team is not sure of the cause of this issue, but a similar incident with searches timing out have been reported here: https://github.com/serpapi/public-roadmap/issues/2795 
 
@@ -286,7 +288,7 @@ python -m coordinator.main start --exclude product_search
 
 2. Explore other Search APIs, such as Google Search API and SerpAPI. The Microservices architecture allows for the Search Service Module to be updated without affecting the other functionalities of the application.
 
-### Image Analysis Workflow (Python Services)
+## Image Analysis Workflow (Python Services)
 
 Analyze and transform an image using the Python microservices (used for testing image generation):
 
