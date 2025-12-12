@@ -49,9 +49,10 @@ HKS-Spatial/
 
 ## Setup
 
-### Note: Please Install Python 3.12 before running the setup process 
+### Note: Please Install Python 3.12 and Node.js before running the setup process 
 
-https://www.python.org/downloads/release/python-3120/
+Python 3.12: https://www.python.org/downloads/release/python-3120/
+Node.js: https://nodejs.org/en 
 
 ### 1. Clone the repositary with submodules
 
