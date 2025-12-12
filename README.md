@@ -260,11 +260,11 @@ python -m coordinator.main restart
 python -m coordinator.main start --exclude {Service name} # verbose, product_search, rag, detection, image_gen
 ```
 
-#### Known issues with services that could not be resolved
+### Known issues with services that could not be resolved
 
 Due to external circumstances, there are some issues that could not be resolved during the prototyping process
 
-1. WebSocket issues in Memory Bot interface
+#### WebSocket issues in Memory Bot interface
 
 Sometimes, when running the application and entering the Memory Bot interface for the first time, a WebSocket connection error would occur, resulting in no voice-over playing.
 
@@ -272,7 +272,7 @@ Sometimes, when running the application and entering the Memory Bot interface fo
 
 Exit the Memory Bot interface and enter the interface again. The WebSocket connection should be established and the voice-over should play again.
 
-2. DuckDuckGo search API issues
+#### DuckDuckGo search API issues
 
 Sometimes, the DuckDuckGo Search API may experience issues with returning search responses, resulting in the Product Search feature not returning results consistently. At the time of development, the team is not sure of the cause of this issue, but a similar incident with searches timing out have been reported here: https://github.com/serpapi/public-roadmap/issues/2795 
 
